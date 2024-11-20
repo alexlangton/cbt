@@ -1,0 +1,14 @@
+[cvs]
+ruta_de_almacen_de_historico_de_versiones=I:\Desarrollo\CVS\%nombreproyecto%
+
+[ficheros]
+rutas_a_incluir=.|!frontend\node_modules|!backend\vendor|!backend\logs
+mascaras_de_ficheros=cjs conf css gitignore htaccess html ini js json lock md mjs php scss sh sql svg vue yml
+
+[proyecto]
+nombre=CityBoardTorrejon
+persona_responsable=agimeno
+ultima_modificacion=miércoles, 20 de noviembre de 2024, 10:55:48
+
+[registro_cambios.v2024.11.20]
+- Punto de control
