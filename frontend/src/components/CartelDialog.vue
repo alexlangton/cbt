@@ -10,6 +10,10 @@
     import InputText from 'primevue/inputtext';
     import Textarea from 'primevue/textarea';
     import { onMounted, ref, watch } from 'vue';
+    import { useToast } from 'primevue/usetoast';
+
+    // Inicializar toast al principio
+    const toast = useToast();
 
     const props = defineProps({
         visible: {
@@ -17,12 +21,19 @@
             required: true
         },
         marker: {
-            type: Object,
+            type: [Object, null],
             default: null
         },
         cartelData: {
             type: Object,
-            default: () => null
+            default: () => ({
+                id: null,
+                nombre: '',
+                latitud: null,
+                longitud: null,
+                id_tipocartel: null,
+                rotativo: ''
+            })
         },
         esModoEdicion: {
             type: Boolean,
@@ -98,7 +109,7 @@
 
         for (const [campo, mensaje] of Object.entries(camposRequeridos)) {
             if (!cartel[campo]) {
-                useToast().add({
+                toast.add({
                     severity: 'error',
                     summary: 'Error de validación',
                     detail: mensaje,
@@ -118,13 +129,27 @@
         }
 
         try {
-            emit('guardar', cartel.value);
-            emit('guardadoExitoso', cartel.value);
-            emit('recargarDatos');
-            cerrarDialog();
+            // Usar el servicio para guardar
+            const resultado = await cartelService.guardarCartel(
+                cartel.value,
+                !props.esModoEdicion
+            );  
+            console.log('Resultado de guardar cartel:', resultado);
+            if (resultado) {
+                toast.add({
+                    severity: 'success',
+                    summary: 'Éxito',
+                    detail: `Cartel ${props.esModoEdicion ? 'actualizado' : 'creado'} correctamente`,
+                    life: 3000
+                });
+
+                emit('guardadoExitoso', resultado);
+                emit('recargarDatos');
+                cerrarDialog();
+            }
         } catch (error) {
             console.error('Error al guardar cartel:', error);
-            useToast().add({
+            toast.add({
                 severity: 'error',
                 summary: 'Error',
                 detail: 'No se pudo guardar el cartel',

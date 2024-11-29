@@ -1,6 +1,8 @@
-import { reactive, watch } from 'vue';
+import { reactive, watch, ref } from 'vue';
 
 export function useControlesMapa() {
+    const showLegend = ref(true);
+
     // Función para cargar el estado desde localStorage
     const cargarEstadoGuardado = () => {
         try {
@@ -84,6 +86,7 @@ export function useControlesMapa() {
 
     return {
         controlesConfig,
-        estado
+        estado,
+        showLegend,
     };
 }

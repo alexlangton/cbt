@@ -1,9 +1,8 @@
 <script setup>
     import TipoCartelDialog from '@/components/TipoCartelDialog.vue';
     import tiposCartelService from '@/services/tiposCartelService';
-    import { FilterMatchMode } from '@primevue/core/api';
     import { useToast } from 'primevue/usetoast';
-    import { onBeforeMount, onMounted, ref } from 'vue';
+    import { onMounted, ref } from 'vue';
 
     const toast = useToast();
 
@@ -17,7 +16,9 @@
     const tipoCartelDialog = ref(false);
     const borrarTipoCartelDialog = ref(false);
     const dt = ref(null);
-    const filters = ref({});
+    const filters = ref({
+        global: { value: null, matchMode: 'contains' }
+    });
 
     // Función para mostrar notificaciones
     const mostrarToast = (severity, summary, detail) => {
@@ -84,15 +85,11 @@
     // Inicialización de filtros
     const initFilters = () => {
         filters.value = {
-            global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+            global: { value: null, matchMode: 'contains' }
         };
     };
 
     // Hooks del ciclo de vida
-    onBeforeMount(() => {
-        initFilters();
-    });
-
     onMounted(() => {
         cargarTiposCartel();
     });
@@ -117,133 +114,159 @@
 </script>
 
 <template>
-    <div>
+    <div class="layout-content">
         <div class="card">
-            <Toolbar class="mb-6">
-                <template #start>
-                    <Button
-                        label="Nuevo"
-                        icon="pi pi-plus"
-                        class="mr-2"
-                        severity="secondary"
-                        @click="nuevoTipoCartel"
-                    />
-                </template>
-                <template #end>
-                    <Button
-                        label="CSV"
-                        icon="pi pi-upload"
-                        severity="secondary"
-                        @click="exportCSV"
-                    />
-                </template>
-            </Toolbar>
+            <div class="surface-section p-4">
+                <!-- Título -->
+                <div class="flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0">Gestión de Tipos de Cartel</h5>
+                </div>
 
-            <DataTable
-                ref="dt"
-                :value="tiposCartel"
-                dataKey="id"
-                :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25]"
-                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} tipos de cartel"
-            >
-                <template #header>
-                    <div
-                        class="flex flex-wrap gap-2 items-center justify-between"
-                    >
-                        <h4 class="m-0">Tipos de Cartel</h4>
-                        <IconField>
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
-                            <InputText
-                                v-model="filters['global'].value"
-                                placeholder="Buscar..."
-                            />
-                        </IconField>
-                    </div>
-                </template>
-
-                <Column
-                    field="id"
-                    header="ID"
-                    :sortable="true"
-                    headerStyle="width:10%; min-width:8rem;"
-                />
-                <Column
-                    field="descripcion"
-                    header="Descripción"
-                    :sortable="true"
-                    headerStyle="width:60%; min-width:10rem;"
-                />
-                <Column
-                    field="atributos"
-                    header="Atributos"
-                    :sortable="true"
-                    headerStyle="width:20%; min-width:10rem;"
-                />
-                <Column headerStyle="min-width:10rem;">
-                    <template #body="slotProps">
+                <!-- Toolbar -->
+                <Toolbar class="mb-4">
+                    <template #start>
                         <Button
-                            icon="pi pi-pencil"
+                            label="Nuevo"
+                            icon="pi pi-plus"
+                            severity="secondary"
+                            outlined
                             class="mr-2"
-                            rounded
-                            outlined
-                            @click="editarTipoCartel(slotProps.data.id)"
-                        />
-                        <Button
-                            icon="pi pi-trash"
-                            severity="danger"
-                            rounded
-                            outlined
-                            @click="confirmarBorrado(slotProps.data)"
+                            @click="nuevoTipoCartel"
                         />
                     </template>
-                </Column>
-            </DataTable>
+                    <template #end>
+                        <Button
+                            label="Exportar CSV"
+                            icon="pi pi-upload"
+                            severity="secondary"
+                            outlined
+                            @click="exportCSV"
+                        />
+                    </template>
+                </Toolbar>
 
-            <TipoCartelDialog
-                v-model:visible="tipoCartelDialog"
-                :tipoCartelData="tipoCartel"
-                :esModoEdicion="!!tipoCartel.id"
-                @guardar="handleGuardarTipoCartel"
-            />
-
-            <Dialog
-                v-model:visible="borrarTipoCartelDialog"
-                :style="{ width: '450px' }"
-                header="Confirmar borrado"
-                :modal="true"
-            >
-                <div class="flex align-items-center justify-content-center">
-                    <i
-                        class="pi pi-exclamation-triangle mr-3"
-                        style="font-size: 2rem"
-                    />
-                    <span v-if="tipoCartel">
-                        ¿Seguro que quieres borrar el tipo de cartel
-                        <b>{{ tipoCartel.descripcion }}</b
-                        >?
-                    </span>
+                <!-- Buscador -->
+                <div class="flex justify-content-end mb-4">
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
+                        <InputText
+                            v-model="filters['global'].value"
+                            placeholder="Buscar..."
+                        />
+                    </IconField>
                 </div>
-                <template #footer>
-                    <Button
-                        label="No"
-                        icon="pi pi-times"
-                        text
-                        @click="borrarTipoCartelDialog = false"
+
+                <!-- DataTable -->
+                <DataTable
+                    ref="dt"
+                    :value="tiposCartel"
+                    dataKey="id"
+                    :paginator="true"
+                    :rows="10"
+                    :filters="filters"
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                    :rowsPerPageOptions="[5, 10, 25]"
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} tipos de cartel"
+                    class="p-datatable-sm"
+                    stripedRows
+                    tableStyle="min-width: 50rem"
+                >
+                    <Column
+                        field="id"
+                        header="ID"
+                        :sortable="true"
+                        style="width: 10rem"
                     />
-                    <Button
-                        label="Sí"
-                        icon="pi pi-check"
-                        text
-                        @click="borrarTipoCartel"
+                    <Column
+                        field="descripcion"
+                        header="Descripción"
+                        :sortable="true"
+                        style="min-width: 15rem"
                     />
-                </template>
-            </Dialog>
+                    <Column style="width: 10rem">
+                        <template #body="slotProps">
+                            <div class="flex gap-2 justify-content-center">
+                                <Button
+                                    icon="pi pi-pencil"
+                                    rounded
+                                    outlined
+                                    @click="editarTipoCartel(slotProps.data.id)"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    rounded
+                                    outlined
+                                    @click="confirmarBorrado(slotProps.data)"
+                                />
+                            </div>
+                        </template>
+                    </Column>
+                </DataTable>
+
+                <TipoCartelDialog
+                    v-model:visible="tipoCartelDialog"
+                    :tipoCartelData="tipoCartel"
+                    :esModoEdicion="!!tipoCartel.id"
+                    @guardar="handleGuardarTipoCartel"
+                />
+
+                <Dialog
+                    v-model:visible="borrarTipoCartelDialog"
+                    :style="{ width: '450px' }"
+                    header="Confirmar borrado"
+                    :modal="true"
+                >
+                    <div class="flex align-items-center justify-content-center">
+                        <i
+                            class="pi pi-exclamation-triangle mr-3"
+                            style="font-size: 2rem"
+                        />
+                        <span v-if="tipoCartel">
+                            ¿Seguro que quieres borrar el tipo de cartel
+                            <b>{{ tipoCartel.descripcion }}</b
+                            >?
+                        </span>
+                    </div>
+                    <template #footer>
+                        <Button
+                            label="No"
+                            icon="pi pi-times"
+                            text
+                            @click="borrarTipoCartelDialog = false"
+                        />
+                        <Button
+                            label="Sí"
+                            icon="pi pi-check"
+                            text
+                            @click="borrarTipoCartel"
+                        />
+                    </template>
+                </Dialog>
+            </div>
         </div>
     </div>
 </template>
+
+<style lang="scss" scoped>
+:deep(.p-button.p-button-outlined) {
+    padding: 0.5rem;
+    
+    .p-button-icon {
+        font-size: 1rem;
+    }
+}
+
+:deep(.p-datatable) {
+    .p-datatable-tbody > tr > td,
+    .p-datatable-thead > tr > th {
+        padding: 0.75rem 1rem;
+    }
+    
+    .p-datatable-tbody > tr > td {
+        line-height: 1.5;
+    }
+}
+</style>

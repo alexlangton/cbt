@@ -1,156 +1,224 @@
+<script setup>
+import { ref, onMounted } from 'vue';
+
+const endpoints = ref({
+    public: {
+        title: 'Rutas Públicas',
+        icon: 'pi pi-unlock',
+        routes: [
+            {
+                method: 'POST',
+                path: '/api/public/login',
+                controller: 'AutenticacionController->login',
+                description: 'Autenticación de usuarios en el sistema'
+            },
+            {
+                method: 'POST',
+                path: '/api/public/logout',
+                controller: 'AutenticacionController->logout',
+                description: 'Cierre de sesión de usuarios'
+            },
+            {
+                method: 'POST',
+                path: '/api/public/recuperarPassword',
+                controller: 'AutenticacionController->recuperarPassword',
+                description: 'Recuperación de contraseña'
+            }
+        ]
+    },
+    system: {
+        title: 'Rutas del Sistema',
+        icon: 'pi pi-cog',
+        routes: [
+            {
+                method: 'GET',
+                path: '/api/test',
+                controller: 'ParkingsController->obtener',
+                description: 'Test de conexión'
+            },
+            {
+                method: 'POST',
+                path: '/api/crearUsuario',
+                controller: 'CrearUsuarioController->crearUsuario',
+                description: 'Creación de nuevos usuarios'
+            },
+            {
+                method: 'GET',
+                path: '/api/datosLeaflet',
+                controller: 'LeafletController->obtenerDatosLeaflet',
+                description: 'Obtención de datos para el mapa'
+            },
+            {
+                method: 'GET',
+                path: '/api/obtenerCartelesActualizados',
+                controller: 'CartelController->obtenerCartelesActualizados',
+                description: 'Obtención de carteles actualizados'
+            }
+        ]
+    },
+    backup: {
+        title: 'Rutas de Backup',
+        icon: 'pi pi-database',
+        routes: [
+            {
+                method: 'GET',
+                path: '/api/database/download',
+                controller: 'DatabaseController->download',
+                description: 'Descarga de copia de seguridad de la base de datos'
+            },
+            {
+                method: 'POST',
+                path: '/api/backup/create',
+                controller: 'BackupController->createBackup',
+                description: 'Creación de nueva copia de seguridad'
+            }
+        ]
+    },
+    crud: {
+        title: 'Rutas CRUD',
+        icon: 'pi pi-table',
+        resources: ['parkings', 'carteles', 'tiposcarteles', 'usuarios'],
+        operations: [
+            {
+                method: 'GET',
+                path: '/@recurso',
+                action: 'obtenerconfiltros',
+                description: 'Obtener listado con filtros'
+            },
+            {
+                method: 'GET',
+                path: '/@recurso/@id',
+                action: 'obtener',
+                description: 'Obtener elemento por ID'
+            },
+            {
+                method: 'POST',
+                path: '/@recurso',
+                action: 'guardarnuevo',
+                description: 'Crear nuevo elemento'
+            },
+            {
+                method: 'PUT',
+                path: '/@recurso/@id',
+                action: 'guardar',
+                description: 'Actualizar elemento existente'
+            },
+            {
+                method: 'DELETE',
+                path: '/@recurso/@id',
+                action: 'borrar',
+                description: 'Eliminar elemento'
+            }
+        ]
+    }
+});
+
+const getMethodColor = (method) => {
+    const colors = {
+        'GET': 'bg-blue-100 text-blue-700',
+        'POST': 'bg-green-100 text-green-700',
+        'PUT': 'bg-orange-100 text-orange-700',
+        'DELETE': 'bg-red-100 text-red-700'
+    };
+    return colors[method] || 'bg-gray-100 text-gray-700';
+};
+</script>
+
 <template>
-    <div class="card">
-        <div class="font-semibold text-2xl mb-4">Documentación de Rutas API</div>
+    <div class="grid">
+        <div class="col-12">
+            <div class="card">
+                <h5>Documentación de API</h5>
+                <p class="text-secondary mb-4">
+                    Documentación completa de los endpoints disponibles en el sistema.
+                </p>
 
-        <div class="font-semibold text-xl mb-4">Inicio de Sesión</div>
-        <p class="text-lg mb-4">
-            <code>POST /api/login</code> = <strong>SesionController->login</strong>
-        </p>
+                <TabView>
+                    <!-- Rutas Públicas, Sistema y Backup -->
+                    <TabPanel v-for="(section, key) in endpoints" 
+                             :key="key" 
+                             :header="section.title">
+                        <div class="card mb-0">
+                            <div class="flex align-items-center mb-4">
+                                <i :class="[section.icon, 'text-xl mr-2']"></i>
+                                <h6 class="m-0">{{ section.title }}</h6>
+                            </div>
 
-        <div class="font-semibold text-xl mb-4">C_APL</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /apl/guardarNuevo</code> = <strong>AplController->guardarNuevo</strong></li>
-            <li><code>GET /apl/mostrar/@codapl</code> = <strong>AplController->mostrar</strong></li>
-            <li><code>GET /apl/mostrar/todos</code> = <strong>AplController->mostrarTodos</strong></li>
-            <li><code>PUT /apl/guardar/@codapl</code> = <strong>AplController->guardar</strong></li>
-            <li><code>DELETE /apl/eliminar/@codapl</code> = <strong>AplController->eliminar</strong></li>
-            <li><code>DELETE /apl/eliminarSeleccion</code> = <strong>AplController->eliminarSeleccion</strong></li>
-        </ul>
+                            <div v-if="key !== 'crud'" class="surface-ground p-4 border-round">
+                                <div v-for="route in section.routes" 
+                                     :key="route.path"
+                                     class="surface-card p-3 border-round mb-3 endpoint-card">
+                                    <div class="flex align-items-center mb-2">
+                                        <span :class="['px-2 py-1 border-round mr-2 font-medium', getMethodColor(route.method)]">
+                                            {{ route.method }}
+                                        </span>
+                                        <code class="text-primary">{{ route.path }}</code>
+                                    </div>
+                                    <div class="text-600 mb-2">{{ route.description }}</div>
+                                    <div class="text-500 text-sm">
+                                        <i class="pi pi-code mr-2"></i>
+                                        {{ route.controller }}
+                                    </div>
+                                </div>
+                            </div>
 
-        <div class="font-semibold text-xl mb-4">C_SECCIONES</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /seccion/guardarNueva</code> = <strong>SecController->guardarNueva</strong></li>
-            <li><code>GET /seccion/mostrar/@codsec</code> = <strong>SecController->mostrar</strong></li>
-            <li><code>GET /seccion/mostrar/todas</code> = <strong>SecController->mostrarTodas</strong></li>
-            <li><code>PUT /seccion/guardar/@codsec</code> = <strong>SecController->guardar</strong></li>
-            <li><code>DELETE /seccion/eliminar/@codsec</code> = <strong>SecController->eliminar</strong></li>
-            <li><code>DELETE /seccion/eliminarSeleccion</code> = <strong>SecController->eliminarSeleccion</strong></li>
-        </ul>
+                            <!-- Sección especial para CRUD -->
+                            <div v-else class="surface-ground p-4 border-round">
+                                <p class="text-600 mb-3">
+                                    Recursos disponibles: 
+                                    <span v-for="resource in section.resources" 
+                                          :key="resource"
+                                          class="mr-2 inline-block bg-primary-100 text-primary-700 px-2 py-1 border-round">
+                                        {{ resource }}
+                                    </span>
+                                </p>
 
-        <div class="font-semibold text-xl mb-4">C_CLAVES</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /clave/guardarNueva</code> = <strong>ClavesController->guardarNueva</strong></li>
-            <li><code>GET /clave/mostrar/@codcla</code> = <strong>ClavesController->mostrar</strong></li>
-            <li><code>GET /clave/mostrar/todas</code> = <strong>ClavesController->mostrarTodas</strong></li>
-            <li><code>PUT /clave/guardar/@codcla</code> = <strong>ClavesController->guardar</strong></li>
-            <li><code>DELETE /clave/eliminar/@codcla</code> = <strong>ClavesController->eliminar</strong></li>
-            <li><code>DELETE /clave/eliminarSeleccion</code> = <strong>ClavesController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">C_VALORES</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /valor/guardarNuevo</code> = <strong>ClavesController->guardarNuevo</strong></li>
-            <li><code>GET /valor/mostrar/@codsec</code> = <strong>ClavesController->mostrar</strong></li>
-            <li><code>GET /valor/mostrar/todos</code> = <strong>ClavesController->mostrarTodos</strong></li>
-            <li><code>PUT /valor/guardar/@codsec</code> = <strong>ClavesController->guardar</strong></li>
-            <li><code>DELETE /valor/eliminar/@codsec</code> = <strong>ClavesController->eliminar</strong></li>
-            <li><code>DELETE /valor/eliminarSeleccion</code> = <strong>ClavesController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">PLUGIN-PARKING</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /aplicacionPlugin/guardar/@idPlugin</code> = <strong>AplicacionPluginController->guardar</strong></li>
-            <li><code>GET /aplicacionPlugin/obtener/@idPlugin</code> = <strong>AplicacionPluginController->obtener</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">C_TRA</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /tra/guardarNuevo</code> = <strong>TraController->guardarNuevo</strong></li>
-            <li><code>GET /tra/mostrar/@codtra</code> = <strong>TraController->mostrar</strong></li>
-            <li><code>GET /tra/mostrar/todos</code> = <strong>TraController->mostrarTodos</strong></li>
-            <li><code>PUT /tra/guardar/@codtra</code> = <strong>TraController->guardar</strong></li>
-            <li><code>DELETE /tra/eliminar/@codtra</code> = <strong>TraController->eliminar</strong></li>
-            <li><code>DELETE /tra/eliminarSeleccion</code> = <strong>TraController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">TRABAJOS-PLUGIN</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /trabajoPlugin/guardarNuevo</code> = <strong>TrabajoPluginController->guardarNuevo</strong></li>
-            <li><code>GET /trabajoPlugin/mostrar/@idPlugin</code> = <strong>TrabajoPluginController->mostrar</strong></li>
-            <li><code>GET /trabajoPlugin/mostrar/todos</code> = <strong>TrabajoPluginController->mostrarTodos</strong></li>
-            <li><code>PUT /trabajoPlugin/guardar/@idPlugin</code> = <strong>TrabajoPluginController->guardar</strong></li>
-            <li><code>DELETE /trabajoPlugin/eliminar/@idPlugin</code> = <strong>TrabajoPluginController->eliminar</strong></li>
-            <li><code>DELETE /trabajoPlugin/eliminarSeleccion</code> = <strong>TrabajoPluginController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">PLUGIN</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /plugin/guardarNuevo</code> = <strong>PluginController->guardarNuevo</strong></li>
-            <li><code>GET /plugin/mostrar/@idPlugin</code> = <strong>PluginController->mostrar</strong></li>
-            <li><code>GET /plugin/mostrar/todos</code> = <strong>PluginController->mostrarTodos</strong></li>
-            <li><code>PUT /plugin/guardar/@idPlugin</code> = <strong>PluginController->guardar</strong></li>
-            <li><code>DELETE /plugin/eliminar/@idPlugin</code> = <strong>PluginController->eliminar</strong></li>
-            <li><code>DELETE /plugin/eliminarSeleccion</code> = <strong>PluginController->eliminarSeleccion</strong></li>
-            <li><code>GET /plugin/trabajo/obtener/@idPlugin</code> = <strong>PluginController->obtenerTrabajosSeleccionadosDisponibles</strong></li>
-            <li><code>GET /plugin/aplicacion/obtener/@idPlugin</code> = <strong>PluginController->obtenerAplicacionesSeleccionadasDisponibles</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">PARKING</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /parking/guardarNuevo</code> = <strong>ParkingController->guardarNuevo</strong></li>
-            <li><code>GET /parking/mostrar/@codinsclo</code> = <strong>ParkingController->mostrar</strong></li>
-            <li><code>GET /parking/mostrar/todos</code> = <strong>ParkingController->mostrarTodos</strong></li>
-            <li><code>PUT /parking/guardar/@codinsclo</code> = <strong>ParkingController->guardar</strong></li>
-            <li><code>DELETE /parking/eliminar/@codinsclo</code> = <strong>ParkingController->eliminar</strong></li>
-            <li><code>DELETE /parking/eliminarSeleccion</code> = <strong>ParkingController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">PLUGIN-PARKING</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>GET /pluginsParking/obtener/todos</code> = <strong>PluginsParkingController->obtenerTodos</strong></li>
-            <li><code>GET /pluginsParking/obtener/@codinsclo</code> = <strong>PluginsParkingController->obtener</strong></li>
-            <li><code>POST /pluginsParking/guardar/@codinsclo</code> = <strong>PluginsParkingController->guardar</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">OPERADOR</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /operador/guardarNuevo</code> = <strong>OperadorController->guardarNuevo</strong></li>
-            <li><code>GET /operador/mostrar/@cod</code> = <strong>OperadorController->mostrar</strong></li>
-            <li><code>GET /operador/mostrar/todos</code> = <strong>OperadorController->mostrarTodos</strong></li>
-            <li><code>PUT /operador/guardar/@cod</code> = <strong>OperadorController->guardar</strong></li>
-            <li><code>DELETE /operador/eliminar/@cod</code> = <strong>OperadorController->eliminar</strong></li>
-            <li><code>DELETE /operador/eliminarSeleccion</code> = <strong>OperadorController->eliminarSeleccion</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">RESETEAR CONTRASEÑA</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /enviarEnlaceRecuperacion</code> = <strong>CorreoController->enviarEnlaceRecuperacion</strong></li>
-            <li><code>PUT /guardarNuevaContrasenia</code> = <strong>NuevaContraseniaController->guardarNuevaContrasenia</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">ARCHIVO INI DEL PLUG-IN</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /campos_ini/guardar/@idPlugin</code> = <strong>CamposIniController->guardar</strong></li>
-            <li><code>GET /campos_ini/obtener/@idPlugin</code> = <strong>CamposIniController->obtener</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">ENT SAL</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /entsal/obtener</code> = <strong>EntSalController->obtener</strong></li>
-        </ul>
-
-        <div class="font-semibold text-xl mb-4">RESERVAS</div>
-        <ul class="leading-normal list-disc pl-8 text-lg mb-4">
-            <li><code>POST /reservas/obtener</code> = <strong>ReservasController->obtener</strong></li>
-        </ul>
+                                <div v-for="op in section.operations" 
+                                     :key="op.path"
+                                     class="surface-card p-3 border-round mb-3 endpoint-card">
+                                    <div class="flex align-items-center mb-2">
+                                        <span :class="['px-2 py-1 border-round mr-2 font-medium', getMethodColor(op.method)]">
+                                            {{ op.method }}
+                                        </span>
+                                        <code class="text-primary">{{ op.path }}</code>
+                                    </div>
+                                    <div class="text-600 mb-2">{{ op.description }}</div>
+                                    <div class="text-500 text-sm">
+                                        <i class="pi pi-code mr-2"></i>
+                                        Controller->{{ op.action }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </TabPanel>
+                </TabView>
+            </div>
+        </div>
     </div>
 </template>
 
 <style lang="scss" scoped>
-@media screen and (max-width: 991px) {
-    .video-container {
-        position: relative;
-        width: 100%;
-        height: 0;
-        padding-bottom: 56.25%;
-
-        iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
+.endpoint-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow);
     }
+}
+
+code {
+    font-family: Monaco, Consolas, monospace;
+    background: var(--surface-ground);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+:deep(.p-tabview-panels) {
+    padding: 1.5rem 0 0 0;
+}
+
+:deep(.p-tabview-nav) {
+    border-bottom: 1px solid var(--surface-border);
 }
 </style>

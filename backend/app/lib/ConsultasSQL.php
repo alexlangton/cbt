@@ -4,43 +4,55 @@ class ConsultasSQL {
     protected $db;
     protected $tabla;
     protected $f3;
-    protected $logFile;
+    protected $logger;
 
     public function __construct($tabla) {
         $this->f3 = \Base::instance();
         $this->db = $this->f3->get('DB');
         $this->tabla = $tabla;
-        
-        // Crear directorio de logs si no existe
-        $logDir = $this->f3['LOGPATH'];
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0777, true);
-        }
-        $this->logFile = $logDir . '/sql.log';
-        
-        // Crear archivo de log si no existe
-        if (!file_exists($this->logFile)) {
-            touch($this->logFile);
-            chmod($this->logFile, 0777);
-        }
+        $this->logger = new Logger($this->f3);
     }
 
-    protected function logQuery($sql, $valores = []) {
-        // Reemplazar los placeholders ? con los valores reales
-        $index = 0;
-        $sqlCompleta = preg_replace_callback('/\?/', function($match) use ($valores, &$index) {
-            $valor = $valores[$index] ?? 'NULL';
-            $index++;
-            return is_string($valor) ? "'$valor'" : $valor;
-        }, $sql);
+    protected function logQuery($sql, $params = []) {
+        try {
+            // Preparar los parámetros para el log
+            $parametrosLog = array_map(function($param) {
+                if (is_array($param)) {
+                    return json_encode($param);
+                }
+                return is_string($param) ? $param : (string)$param;
+            }, $params);
 
-        // Registrar la consulta
-        if ($this->f3->get('DEBUG') >= 3) {
-            $this->f3->write(
-                $this->logFile,
-                date('Y-m-d H:i:s') . ' - ' . "SQL Query [$this->tabla]: " . $sqlCompleta . "\n",
-                true
-            );
+            // Reemplazar los placeholders con los valores reales
+            $queryFinal = preg_replace_callback('/\?/', function() use (&$parametrosLog) {
+                return array_shift($parametrosLog) ?? '?';
+            }, $sql);
+
+            // Preparar datos para el log
+            $datosLog = [
+                'tabla' => $this->tabla,
+                'query_raw' => $sql,
+                'parametros' => $params
+            ];
+
+            // Convertir arrays en los parámetros a JSON
+            array_walk_recursive($datosLog, function(&$item) {
+                if (is_array($item)) {
+                    $item = json_encode($item);
+                }
+            });
+
+            // Escribir en el archivo de log
+            $logFile = fopen('logs/sql.log', 'a');
+            if ($logFile) {
+                fwrite($logFile, '[' . date('Y-m-d H:i:s') . '] SQL: ' . $queryFinal . "\n");
+                fwrite($logFile, json_encode($datosLog) . "\n");
+                fclose($logFile);
+            }
+
+        } catch (\Exception $e) {
+            // Si hay un error en el logging, lo registramos pero no interrumpimos la ejecución
+            error_log('Error en logQuery: ' . $e->getMessage());
         }
     }
 
@@ -48,11 +60,13 @@ class ConsultasSQL {
         try {
             // Validar que $id sea un número y no esté vacío
             if (empty($id) || !is_numeric($id) || $id <= 0) {
-                $this->f3->write(
-                    $this->logFile,
-                    date('Y-m-d H:i:s') . ' - Error: ID inválido: ' . var_export($id, true) . "\n",
-                    true
-                );
+                $this->logger->error('ID inválido', [
+                    'id' => $id,
+                    'tipo' => gettype($id),
+                    'razon' => empty($id) ? 'vacío' : (!is_numeric($id) ? 'no numérico' : 'menor o igual a cero'),
+                    'tabla' => $this->tabla
+                ]);
+
                 return [
                     'estado' => 'error',
                     'mensaje' => 'ID inválido',
@@ -86,11 +100,12 @@ class ConsultasSQL {
 
         } catch (\Exception $e) {
             $mensaje = $e->getMessage();
-            $this->f3->write(
-                $this->logFile,
-                date('Y-m-d H:i:s') . ' - Error al obtener registro: ' . $mensaje . "\n",
-                true
-            );
+            $this->logger->error('Error al obtener registro', [
+                'error' => $mensaje,
+                'id' => $id,
+                'tabla' => $this->tabla
+            ]);
+
             return [
                 'estado' => 'error',
                 'mensaje' => 'Error al obtener registro',
@@ -174,11 +189,12 @@ class ConsultasSQL {
         }
 
         // Registrar el error completo en el log
-        $this->f3->write(
-            $this->logFile,
-            date('Y-m-d H:i:s') . " - Error SQL en tabla {$this->tabla}: " . $mensaje . "\n",
-            true
-        );
+        $this->logger->error('Error en consulta SQL', [
+            'mensaje' => $mensaje,
+            'codigo' => $codigo,
+            'tabla' => $this->tabla,
+            'trace' => $e->getTraceAsString()
+        ]);
 
         return $errorInfo;
     }
@@ -351,39 +367,44 @@ class ConsultasSQL {
     }
 
     // Búsqueda con múltiples condiciones
-    public function buscarConFiltros($filtros = [], $orden = null, $limite = null) {
+    public function buscarConFiltros($filtros, $orden = null, $limite = null) {
         try {
+            $this->logger->info('Iniciando búsqueda con filtros raw: ' . json_encode($filtros));
+            
             $sql = 'SELECT * FROM ' . $this->tabla;
             $valores = [];
             
             if (!empty($filtros)) {
+                $this->logger->info('Filtros no están vacíos');
                 $condiciones = [];
+                
                 foreach ($filtros as $campo => $valor) {
-                    $condiciones[] = "$campo = ?";
-                    $valores[] = $valor;
+                    $this->logger->info("Procesando: campo='$campo', valor='$valor'");
+                    
+                    // Extraer campo y operador usando regex
+                    if (preg_match('/^(\w+)\s*([<>]=?|=)\s*(\d+)$/', $campo, $matches)) {
+                        $campoReal = $matches[1];
+                        $operador = $matches[2];
+                        $valorComparacion = $matches[3];
+                        $this->logger->info("Campo real: '$campoReal', Operador: '$operador', Valor: '$valorComparacion'");
+                        $condiciones[] = "$campoReal $operador $valorComparacion";
+                    }
                 }
-                $sql .= ' WHERE ' . implode(' AND ', $condiciones);
+                
+                if (!empty($condiciones)) {
+                    $this->logger->info('Condiciones: ' . json_encode($condiciones));
+                    $sql .= ' WHERE ' . implode(' AND ', $condiciones);
+                }
             }
             
-            if ($orden) {
-                $sql .= ' ORDER BY ' . $orden;
-            }
-            
-            if ($limite) {
-                $sql .= ' LIMIT ' . $limite;
-            }
-            
-            $this->logQuery($sql, $valores);
-            $resultado = $this->db->exec($sql, $valores);
+            $this->logger->info('SQL final: ' . $sql);
+            $this->logQuery($sql, []);
+            $resultado = $this->db->exec($sql);
             
             return $this->respuestaExito($resultado);
         } catch (\Exception $e) {
-            $error = $this->manejarError($e);
-            return $this->respuestaError(
-                $error['mensaje'],
-                $error,
-                $error['codigo'] ?? 500
-            );
+            $this->logger->error('Error en búsqueda con filtros: ' . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -556,6 +577,42 @@ class ConsultasSQL {
         $resultado = $this->db->exec($sql, $params);
         
         return $this->respuestaExito($resultado);
+    }
+
+    public function buscarPorEmail($email) {
+        try {
+            if (empty($email)) {
+                $this->logger->error('Email vacío', [
+                    'email' => $email,
+                    'tabla' => $this->tabla
+                ]);
+                return false;
+            }
+
+            $sql = 'SELECT * FROM ' . $this->tabla . ' WHERE email = ?';
+            $this->logQuery($sql, [$email]);
+            $resultado = $this->db->exec($sql, [$email]);
+
+            if (!$resultado) {
+                return false;
+            }
+
+            // Cargar los datos en el objeto actual
+            foreach ($resultado[0] as $campo => $valor) {
+                $this->$campo = $valor;
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            $mensaje = $e->getMessage();
+            $this->logger->error('Error al buscar usuario por email', [
+                'error' => $mensaje,
+                'email' => $email,
+                'tabla' => $this->tabla
+            ]);
+            return false;
+        }
     }
 } 
   

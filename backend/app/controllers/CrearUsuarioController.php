@@ -1,6 +1,6 @@
 <?php 
 
-class CrearUsuarioController extends Controller {
+class CrearUsuarioController extends AutenticacionController {
     protected $logger;
     protected $consultas;
 

@@ -43,6 +43,22 @@
             ]
         },
         {
+            label: 'Base de Datos',
+            icon: 'pi pi-database',
+            items: [
+                {
+                    label: 'Backup Base de Datos',
+                    icon: 'pi pi-download',
+                    to: '/pages/backup'
+                },
+                {
+                    label: 'Logs del Sistema',
+                    icon: 'pi pi-server',
+                    to: '/pages/logs'
+                }
+            ]
+        },
+        {
             label: 'Recursos humanos',
             icon: 'pi pi-briefcase',
             items: [

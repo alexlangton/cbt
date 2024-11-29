@@ -22,10 +22,12 @@
     import { useMapaGeneral } from '@/composables/useMapaGeneral';
     import { useMarcadores } from '@/composables/useMarcadores';
     import { obtenerParking } from '@/services/parkingService';
-    import { computed, onMounted, onUnmounted, ref } from 'vue';
+    import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
     import { useToast } from 'primevue/usetoast';
     import cartelService from '@/services/cartelService';
     import Toast from 'primevue/toast';
+    import { useMapStore } from '@/stores/mapStore';
+    import { storeToRefs } from 'pinia';
 
     // Inicialización de servicios
     const {
@@ -57,6 +59,18 @@
 
     const ajusteInicialRealizado = ref(false);
 
+    // Crear una única instancia del toast al inicio
+    const toast = useToast();
+
+    // Obtener el store y hacer reactivo el estado
+    const mapStore = useMapStore();
+    const { showLegend } = storeToRefs(mapStore);
+
+    // Función para alternar la visibilidad de la leyenda
+    const toggleLegend = () => {
+        mapStore.toggleLegend();
+    };
+
     // Funciones de manejo de eventos
     const btnMarcadorClick = async (marcador) => {
         if (!marcador || !marcador.type) {
@@ -65,8 +79,9 @@
         }
 
         try {
+            selectedMarker.value = marcador;
+
             if (marcador.type === 'cartel') {
-                selectedMarker.value = marcador;
                 showCartelDialog.value = true;
                 return;
             }
@@ -89,10 +104,10 @@
             }
         } catch (error) {
             console.error('Error al procesar marcador:', error);
-            useToast().add({
+            toast.add({
                 severity: 'error',
                 summary: 'Error',
-                detail: error.message || 'Error al cargar datos del parking',
+                detail: error.message || 'Error al cargar datos',
                 life: 3000
             });
         }
@@ -100,11 +115,20 @@
 
     // Computed properties
     const marcadoresFiltrados = computed(() => {
-        return marcadores.value.filter((marcador) => {
-            if (marcador.type === 'parking') return estado.showParkings;
-            if (marcador.type === 'cartel') return estado.showCarteles;
+        const filtrados = marcadores.value.filter((marcador) => {
+            if (marcador.type === 'parking') {
+                console.log('Evaluando parking:', marcador.name, estado.showParkings);
+                return estado.showParkings;
+            }
+            if (marcador.type === 'cartel') {
+                console.log('Evaluando cartel:', marcador.name, estado.showCarteles);
+                return estado.showCarteles;
+            }
             return false;
         });
+
+        console.log('Marcadores filtrados:', filtrados.length);
+        return filtrados;
     });
 
     const onParkingGuardado = async () => {
@@ -155,10 +179,7 @@
     };
 
     const onCartelGuardado = async (cartelActualizado) => {
-        const toast = useToast();
-        
         try {
-            // Actualizar el marcador en el mapa
             if (selectedMarker.value) {
                 selectedMarker.value = {
                     ...selectedMarker.value,
@@ -168,7 +189,6 @@
                 };
             }
             
-            // Recargar todos los datos
             await cargarDatos();
             
             toast.add({
@@ -182,18 +202,15 @@
             toast.add({
                 severity: 'error',
                 summary: 'Error',
-                detail: 'No se pudo actualizar el cartel',
+                detail: error.message || 'No se pudo actualizar el cartel',
                 life: 3000
             });
         }
     };
 
     const cargarDatos = async () => {
-        const toast = useToast();
-        
         try {
             const datos = await cartelService.cargarCarteles();
-            // Actualizar los marcadores en el mapa
             marcadores.value = datos.map(cartel => ({
                 ...cartel,
                 type: 'cartel',
@@ -206,9 +223,10 @@
             toast.add({
                 severity: 'error',
                 summary: 'Error',
-                detail: 'Error al cargar los datos',
+                detail: error.message || 'Error al cargar los datos',
                 life: 3000
             });
+            throw error; // Re-lanzar el error para manejo superior si es necesario
         }
     };
 
@@ -216,12 +234,16 @@
     onMounted(() => {
         cargarDatos();
     });
+
+    // En el componente que contiene la leyenda
+    watch(showLegend, (newValue) => {
+        console.log('Estado de la leyenda cambiado a:', newValue);
+    });
 </script>
 
 <template>
+    <Toast />
     <div class="card">
-        <Toast />
-        
         <l-map
             :useGlobalLeaflet="false"
             ref="mapRef"
@@ -237,7 +259,7 @@
             />
 
             <!-- Control personalizado para los checkboxes -->
-            <l-control position="topright">
+            <l-control position="topright" v-show="showLegend">
                 <div
                     class="leaflet-control leaflet-bar map-controls surface-card p-2"
                 >
@@ -277,8 +299,8 @@
             <!-- Resto de los componentes del mapa -->
             <l-marker
                 v-for="marcador in marcadoresFiltrados"
+                :key="marcador.uniqueId"
                 :lat-lng="[marcador.lat, marcador.lng]"
-                :key="marcador.id"
                 @click="btnMarcadorClick(marcador)"
             >
                 <l-icon class-name="custom-icon">
@@ -310,20 +332,20 @@
         </l-map>
 
         <ParkingDialog
-            v-if="showParkingDialog && selectedMarker"
             v-model:visible="showParkingDialog"
             :marker="selectedMarker"
             :es-modo-edicion="true"
             origen="mapa"
             @guardadoExitoso="onParkingGuardado"
             @update:visible="(val) => {
-                showParkingDialog = val;
-                if (!val) selectedMarker.value = null;
+                if (!val) {
+                    selectedMarker = null;
+                    showParkingDialog = false;
+                }
             }"
         />
 
         <CartelDialog
-            v-if="showCartelDialog && selectedMarker"
             v-model:visible="showCartelDialog"
             :marker="selectedMarker"
             :es-modo-edicion="true"
@@ -331,8 +353,10 @@
             @guardadoExitoso="onCartelGuardado"
             @recargarDatos="cargarDatos"
             @update:visible="(val) => {
-                showCartelDialog = val;
-                if (!val) selectedMarker = null;
+                if (!val) {
+                    selectedMarker = null;
+                    showCartelDialog = false;
+                }
             }"
         />
     </div>
@@ -483,5 +507,9 @@
     .mapa-container {
         border: 2px solid blue;
         min-height: calc(100vh - 9rem);
+    }
+
+    .leaflet-control {
+        transition: opacity 0.3s ease-in-out;
     }
 </style>

@@ -30,13 +30,11 @@ return [
     ],
     'ciudad' => [
         'opcional',
-        'string',
-        'max:100'
+        'string'
     ],
     'codigo_postal' => [
         'opcional',
-        'string',
-        'max:10'
+        'string'
     ],
     'json_counters' => [
         'opcional',

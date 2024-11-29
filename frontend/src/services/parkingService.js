@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios from './axios';
 
-const BASE_URL = 'http://localhost/api/parkings';
+const BASE_URL = '/api/parkings';
 
 const formatearParking = (parking) => {
     if (!parking) return null;

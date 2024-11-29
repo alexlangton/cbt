@@ -11,113 +11,42 @@ class Validador {
     public function __construct($f3) {
         $this->f3 = $f3;
         $this->db = $f3['DB'];
+        $this->logger = new Logger($f3);
         
-        // Inicializar logger usando la clase Base de F3
-        $this->logger = new \Log('validador.log');
+        $this->logger->validador('Inicializando validador', [
+            'directorio_logs' => $f3['LOGS'],
+            'validaciones_dir' => $f3['VALIDACIONES']
+        ]);
         
-        $this->logger->write('Inicializando validador', 'INFO');
         $this->cargarReglas($f3);
-    }
-
-    // Método helper para los logs
-    private function log($mensaje, $nivel = 'DEBUG') {
-        $this->logger->write($mensaje, $nivel);
     }
 
     private function cargarReglas($f3) {
         $directorio = $f3['VALIDACIONES'];
-        $this->log("Cargando reglas desde directorio: {$directorio}");
+        $this->logger->validador("Cargando reglas desde directorio: {$directorio}");
         
         if (is_dir($directorio)) {
             foreach (scandir($directorio) as $archivo) {
                 if ($archivo != '.' && $archivo != '..') {
                     $tabla = pathinfo($archivo, PATHINFO_FILENAME);
                     $this->reglas[$tabla] = require $directorio . $archivo;
-                    $this->log("Reglas cargadas para tabla: {$tabla}");
+                    $this->logger->validador("Reglas cargadas para tabla: {$tabla}");
                 }
             }
-            $this->log("Reglas cargadas exitosamente para " . count($this->reglas) . " tablas", 'INFO');
+            $this->logger->validador("Reglas cargadas exitosamente para " . count($this->reglas) . " tablas");
         } else {
-            $this->log("Directorio de validaciones no encontrado: {$directorio}", 'ERROR');
-        }
-    }
-
-    public function validar($tabla, $datos, $esActualizacion = false) {
-        $this->log("Iniciando validación para tabla: {$tabla}" . ($esActualizacion ? " (actualización)" : " (inserción)"), 'INFO');
-        $this->log("Datos a validar: " . json_encode($datos), 'DEBUG');
-        
-        $this->errores = [];
-        $this->datos = $datos;
-
-        if (!isset($this->reglas[$tabla])) {
-            $this->log("No hay reglas definidas para la tabla: {$tabla}", 'ERROR');
-            throw new Exception("No hay reglas de validación para la tabla: $tabla");
-        }
-
-        $this->validarCamposNoPermitidos($tabla);
-        
-        if (!$esActualizacion) {
-            $this->log("Validando campos requeridos para inserción", 'DEBUG');
-            $this->validarCamposRequeridos($tabla);
-        } else {
-            $this->log("Validando solo campos proporcionados para actualización", 'DEBUG');
-            foreach ($this->datos as $campo => $valor) {
-                if (isset($this->reglas[$tabla][$campo])) {
-                    $this->validarCampo($campo, $this->reglas[$tabla][$campo]);
-                }
-            }
-        }
-
-        $resultado = [
-            'valido' => empty($this->errores),
-            'errores' => $this->errores,
-            'datos_limpios' => $this->datos
-        ];
-
-        if ($resultado['valido']) {
-            $this->log("Validación exitosa para tabla {$tabla}", 'INFO');
-        } else {
-            $this->log("Validación fallida para tabla {$tabla}: " . json_encode($this->errores), 'ERROR');
-        }
-
-        return $resultado;
-    }
-
-    private function validarCamposNoPermitidos($tabla) {
-        $this->log("Verificando campos no permitidos para tabla: {$tabla}", 'DEBUG');
-        
-        foreach ($this->datos as $campo => $valor) {
-            // Ignorar el campo 'id' si no está definido como requerido en las reglas
-            if ($campo === 'id' && (!isset($this->reglas[$tabla]['id']) || !$this->esRequerido($this->reglas[$tabla]['id']))) {
-                $this->log("Campo 'id' ignorado en validación de campos no permitidos", 'DEBUG');
-                continue;
-            }
-
-            if (!isset($this->reglas[$tabla][$campo])) {
-                $this->log("Campo no permitido encontrado: '{$campo}' en tabla {$tabla}", 'ERROR');
-                $this->errores['campos_invalidos'][] = "El campo '$campo' no está permitido";
-            }
-        }
-        
-        if (empty($this->errores['campos_invalidos'])) {
-            $this->log("No se encontraron campos no permitidos");
-        }
-    }
-
-    // Método auxiliar para verificar si un campo es requerido
-    private function esRequerido($reglas) {
-        return is_array($reglas) && in_array('requerido', $reglas);
-    }
-
-    private function validarCamposRequeridos($tabla) {
-        foreach ($this->reglas[$tabla] as $campo => $reglas) {
-            $this->validarCampo($campo, $reglas);
+            $this->logger->validador("Directorio de validaciones no encontrado: {$directorio}");
         }
     }
 
     private function validarCampo($campo, $reglas) {
         $valor = $this->datos[$campo] ?? null;
-        $this->log("Validando campo '{$campo}' con valor: " . json_encode($valor), 'DEBUG');
+        
+        $this->logger->validador("Validando campo", [
+            'campo' => $campo,
+            'valor' => $valor,
+            'reglas' => $reglas
+        ]);
         
         $continuar = true;
 
@@ -125,7 +54,12 @@ class Validador {
             if (!$continuar) break;
             
             list($nombreRegla, $parametros) = $this->parsearRegla($regla);
-            $this->log("Aplicando regla '{$nombreRegla}' con parámetros: " . json_encode($parametros), 'DEBUG');
+            
+            $this->logger->validador("Aplicando regla", [
+                'campo' => $campo,
+                'regla' => $nombreRegla,
+                'parametros' => $parametros
+            ]);
             
             $continuar = $this->aplicarRegla($nombreRegla, $campo, $valor, $parametros);
         }
@@ -148,22 +82,26 @@ class Validador {
     }
 
     private function validarRequerido($campo, $valor, $parametros) {
-        $this->log("Validando campo requerido: {$campo}");
-        
         if ($valor === null || $valor === '') {
-            $this->log("Campo requerido '{$campo}' no proporcionado", 'ERROR');
+            $this->logger->validador("Campo [$campo] requerido no proporcionado", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
             $this->errores[$campo][] = "El campo '$campo' es requerido";
         } else {
-            $this->log("Campo requerido '{$campo}' validado correctamente");
+            $this->logger->validador("Campo requerido validado correctamente", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
         }
         return true;
     }
 
     private function validarOpcional($campo, $valor, $parametros) {
-        $this->log("Validando campo opcional: {$campo}");
-        
         if ($valor === null || $valor === '') {
-            $this->log("Campo opcional '{$campo}' vacío, removiendo del conjunto de datos");
+            $this->logger->validador("Campo opcional vacío", [
+                'campo' => $campo
+            ]);
             unset($this->datos[$campo]);
             return false;
         }
@@ -172,48 +110,120 @@ class Validador {
 
     private function validarString($campo, $valor, $parametros) {
         if ($valor !== null && !is_string($valor)) {
+            $this->logger->validador("Valor no es string", [
+                'campo' => $campo,
+                'valor' => $valor,
+                'tipo_actual' => gettype($valor)
+            ]);
             $this->errores[$campo][] = "El campo '$campo' debe ser texto";
+        } else {
+            $this->logger->validador("Validación string exitosa", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
         }
         return true;
     }
 
     private function validarEntero($campo, $valor, $parametros) {
         if ($valor !== null && !filter_var($valor, FILTER_VALIDATE_INT)) {
+            $this->logger->validador("Valor no es entero", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
             $this->errores[$campo][] = "El campo '$campo' debe ser un número entero";
+        } else {
+            $this->logger->validador("Validación entero exitosa", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
         }
         return true;
     }
 
     private function validarEnum($campo, $valor, $parametros) {
         if ($valor !== null && !in_array($valor, $parametros)) {
+            $this->logger->validador("Valor no permitido en enum", [
+                'campo' => $campo,
+                'valor' => $valor,
+                'valores_permitidos' => $parametros
+            ]);
             $this->errores[$campo][] = "El valor '$valor' no es válido para el campo '$campo'. Valores permitidos: " . implode(', ', $parametros);
+        } else {
+            $this->logger->validador("Validación enum exitosa", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
         }
         return true;
     }
 
     private function validarMax($campo, $valor, $parametros) {
-        if ($valor !== null && strlen($valor) > $parametros[0]) {
-            $this->errores[$campo][] = "El campo '$campo' no puede tener más de {$parametros[0]} caracteres";
+        if ($valor === null) return true;
+
+        $maximo = $parametros[0];
+        
+        if (is_numeric($valor)) {
+            // Validación para números
+            if ($valor > $maximo) {
+                $this->logger->validador("Valor excede el máximo permitido", [
+                    'campo' => $campo,
+                    'valor' => $valor,
+                    'maximo_permitido' => $maximo
+                ]);
+                $this->errores[$campo][] = "El campo '$campo' no puede ser mayor a {$maximo}";
+            }
+        } else {
+            // Validación para strings
+            if (strlen($valor) > $maximo) {
+                $this->logger->validador("Longitud excede el máximo", [
+                    'campo' => $campo,
+                    'valor' => $valor,
+                    'longitud_actual' => strlen($valor),
+                    'maximo_permitido' => $maximo
+                ]);
+                $this->errores[$campo][] = "El campo '$campo' no puede tener más de {$maximo} caracteres";
+            }
         }
+        
         return true;
     }
 
     private function validarMin($campo, $valor, $parametros) {
-        if ($valor !== null) {
-            if (is_numeric($valor) && $valor < $parametros[0]) {
-                $this->errores[$campo][] = "El campo '$campo' debe ser mayor o igual a {$parametros[0]}";
-            }
+        if ($valor !== null && is_numeric($valor) && $valor < $parametros[0]) {
+            $this->logger->validador("Valor menor al mínimo permitido", [
+                'campo' => $campo,
+                'valor' => $valor,
+                'minimo_permitido' => $parametros[0]
+            ]);
+            $this->errores[$campo][] = "El campo '$campo' debe ser mayor o igual a {$parametros[0]}";
+        } else {
+            $this->logger->validador("Validación min exitosa", [
+                'campo' => $campo,
+                'valor' => $valor
+            ]);
         }
         return true;
     }
 
     private function validarFecha($campo, $valor, $parametros) {
         if ($valor !== null) {
+            $this->logger->validador("Validando fecha", [
+                'campo' => $campo,
+                'valor' => $valor,
+                'parametros' => $parametros
+            ]);
+
             // Validar ESTRICTAMENTE el formato ISO
             $formatoISOFecha = '/^\d{4}-\d{2}-\d{2}$/';
             $formatoISOFechaHora = '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/';
             
             if (!preg_match($formatoISOFecha, $valor) && !preg_match($formatoISOFechaHora, $valor)) {
+                $this->logger->validador("Formato de fecha inválido", [
+                    'campo' => $campo,
+                    'valor' => $valor,
+                    'formatos_esperados' => ['YYYY-MM-DD', 'YYYY-MM-DD HH:mm:ss']
+                ]);
                 $this->errores[$campo][] = "El campo '$campo' debe usar formato ISO: YYYY-MM-DD o YYYY-MM-DD HH:mm:ss";
                 return true;
             }
@@ -221,6 +231,11 @@ class Validador {
             // Si el formato es correcto, validamos que la fecha sea válida
             $fecha = date_parse($valor);
             if ($fecha['error_count'] > 0 || !checkdate($fecha['month'], $fecha['day'], $fecha['year'])) {
+                $this->logger->validador("Fecha inválida", [
+                    'campo' => $campo,
+                    'valor' => $valor,
+                    'errores_parse' => $fecha['error_count']
+                ]);
                 $this->errores[$campo][] = "La fecha proporcionada no es válida";
                 return true;
             }
@@ -231,15 +246,29 @@ class Validador {
                 $ahora = new DateTime();
 
                 foreach ($parametros as $param) {
+                    $this->logger->validador("Validando restricción de fecha", [
+                        'campo' => $campo,
+                        'restriccion' => $param,
+                        'valor' => $valor
+                    ]);
+
                     switch ($param) {
                         case 'pasado':
                             if ($dateTime > $ahora) {
+                                $this->logger->validador("Fecha futura no permitida", [
+                                    'campo' => $campo,
+                                    'valor' => $valor
+                                ]);
                                 $this->errores[$campo][] = "La fecha no puede ser futura";
                             }
                             break;
 
                         case 'futuro':
                             if ($dateTime < $ahora) {
+                                $this->logger->validador("Fecha pasada no permitida", [
+                                    'campo' => $campo,
+                                    'valor' => $valor
+                                ]);
                                 $this->errores[$campo][] = "La fecha no puede ser pasada";
                             }
                             break;
@@ -247,6 +276,10 @@ class Validador {
                         case 'hoy_o_futuro':
                             $hoy = new DateTime('today');
                             if ($dateTime < $hoy) {
+                                $this->logger->validador("Fecha anterior a hoy no permitida", [
+                                    'campo' => $campo,
+                                    'valor' => $valor
+                                ]);
                                 $this->errores[$campo][] = "La fecha debe ser hoy o futura";
                             }
                             break;
@@ -263,7 +296,17 @@ class Validador {
     private function validarHora($campo, $valor, $parametros) {
         if ($valor !== null) {
             if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/', $valor)) {
+                $this->logger->validador("Formato de hora inválido", [
+                    'campo' => $campo,
+                    'valor' => $valor,
+                    'formato_esperado' => 'HH:MM:SS'
+                ]);
                 $this->errores[$campo][] = "El campo '$campo' debe ser una hora válida en formato HH:MM:SS";
+            } else {
+                $this->logger->validador("Validación hora exitosa", [
+                    'campo' => $campo,
+                    'valor' => $valor
+                ]);
             }
         }
         return true;
@@ -278,17 +321,93 @@ class Validador {
 
     private function validarExiste($campo, $valor, $parametros) {
         if ($valor !== null) {
-            $this->log("Verificando existencia en {$parametros[0]} para ID: {$valor}");
+            $this->logger->validador("Verificando existencia en {$parametros[0]} para ID: {$valor}");
             
             $existe = $this->db->exec('SELECT 1 FROM ' . $parametros[0] . ' WHERE id = ?', [$valor]);
             
             if (empty($existe)) {
-                $this->log("ID {$valor} no encontrado en tabla {$parametros[0]}", 'ERROR');
+                $this->logger->validador("ID {$valor} no encontrado en tabla {$parametros[0]}");
                 $this->errores[$campo][] = "El ID proporcionado en '$campo' no existe en la tabla {$parametros[0]}";
             } else {
-                $this->log("ID {$valor} verificado exitosamente en {$parametros[0]}");
+                $this->logger->validador("ID {$valor} verificado exitosamente en {$parametros[0]}");
             }
         }
         return true;
+    }
+
+    public function setDatos($datos) {
+        $this->datos = $datos;
+        $this->errores = [];
+    }
+
+    public function validar($tabla, $datos = null, $esActualizacion = false) {
+        if ($datos !== null) {
+            $this->setDatos($datos);
+        }
+
+        $this->logger->validador("Iniciando validación", [
+            'tabla' => $tabla,
+            'es_actualizacion' => $esActualizacion,
+            'datos' => $this->datos
+        ]);
+        
+        if (!isset($this->reglas[$tabla])) {
+            $this->logger->validador("No hay reglas definidas", [
+                'tabla' => $tabla
+            ]);
+            return false;
+        }
+
+        foreach ($this->reglas[$tabla] as $campo => $reglas) {
+            // Si es actualización y el campo no está presente en los datos, lo saltamos
+            if ($esActualizacion && !array_key_exists($campo, $this->datos)) {
+                $this->logger->validador("Campo omitido en actualización", [
+                    'tabla' => $tabla,
+                    'campo' => $campo
+                ]);
+                continue;
+            }
+
+            $this->logger->validador("Procesando campo", [
+                'tabla' => $tabla,
+                'campo' => $campo,
+                'reglas' => $reglas,
+                'es_actualizacion' => $esActualizacion
+            ]);
+            $this->validarCampo($campo, $reglas);
+        }
+
+        $hayErrores = !empty($this->errores);
+        
+        if ($hayErrores) {
+            $this->logger->validador("Validación fallida", [
+                'tabla' => $tabla,
+                'errores' => $this->errores,
+                'es_actualizacion' => $esActualizacion
+            ]);
+        } else {
+            $this->logger->validador("Validación exitosa", [
+                'tabla' => $tabla,
+                'es_actualizacion' => $esActualizacion
+            ]);
+        }
+
+        return !$hayErrores;
+    }
+
+    /**
+     * Obtiene los errores de validación
+     * @return array
+     */
+    public function getErrores() {
+        return $this->errores;
+    }
+
+    /**
+     * Obtiene los datos validados
+     * @return array
+     */
+    public function getDatos() {
+        return $this->datos;
     }
 } 

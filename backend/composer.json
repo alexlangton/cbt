@@ -1,6 +1,22 @@
 {
+    "name": "cbt/backend",
+    "description": "Backend CBT con Fat-Free Framework",
+    "version": "1.0.0",
+    "license": "proprietary",
     "require": {
         "bcosca/fatfree-core": "^3.8",
-        "monolog/monolog": "^3.7"
+        "firebase/php-jwt": "^6.10",
+        "monolog/monolog": "^3.7",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
     }
 }

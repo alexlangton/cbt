@@ -8,13 +8,13 @@ return [
     ],
     'latitud' => [
         'opcional',
-        'numeric',
-        'min:0',
+        'decimal',
+        'min:-90',
         'max:90'
     ],
     'longitud' => [
         'requerido',
-        'numeric',
+        'decimal',
         'min:-180',
         'max:180'
     ],

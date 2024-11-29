@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios from './axios';
 
-const BASE_URL = 'http://localhost/api/usuarios';
+const BASE_URL = '/api/usuarios';
 
 const formatearUsuario = (usuario) => {
     if (!usuario) return null;
@@ -32,7 +32,8 @@ const formatearUsuarioParaEnvio = (usuario, esNuevo = false) => {
 
 export const cargarUsuarios = async () => {
     try {
-        const { data: { datos: { datos: usuarios } } } = await axios.get(BASE_URL);
+        const { data } = await axios.get(BASE_URL);
+        const usuarios = data.datos?.datos || [];
         return Array.isArray(usuarios) ? usuarios.map(formatearUsuario) : [];
     } catch (error) {
         console.error('Error al cargar usuarios:', error);
@@ -42,7 +43,8 @@ export const cargarUsuarios = async () => {
 
 export const obtenerUsuario = async (id) => {
     try {
-        const { data: { datos: { datos: usuario } } } = await axios.get(`${BASE_URL}/${id}`);
+        const { data } = await axios.get(`${BASE_URL}/${id}`);
+        const usuario = data.datos?.datos;
         return formatearUsuario(Array.isArray(usuario) ? usuario[0] : usuario);
     } catch (error) {
         console.error(`Error al obtener usuario ${id}:`, error);
@@ -87,8 +89,8 @@ export const cambiarPassword = async (id, passwordData) => {
 
 export const borrarUsuario = async (id) => {
     try {
-        const { data: { datos } } = await axios.delete(`${BASE_URL}/${id}`);
-        return datos || { message: 'Usuario eliminado correctamente' };
+        const { data } = await axios.delete(`${BASE_URL}/${id}`);
+        return data.datos || { message: 'Usuario eliminado correctamente' };
     } catch (error) {
         console.error(`Error al borrar usuario ${id}:`, error);
         throw new Error(error.response?.data?.mensaje || 'Error al borrar usuario');
@@ -97,11 +99,27 @@ export const borrarUsuario = async (id) => {
 
 export const borrarUsuariosSeleccionados = async (ids) => {
     try {
-        const { data: { datos } } = await axios.delete(BASE_URL, { data: { ids } });
-        return datos || { message: 'Usuarios eliminados correctamente' };
+        const { data } = await axios.delete(BASE_URL, { data: { ids } });
+        return data.datos || { message: 'Usuarios eliminados correctamente' };
     } catch (error) {
         console.error('Error al borrar usuarios seleccionados:', error);
         throw new Error(error.response?.data?.mensaje || 'Error al borrar usuarios');
+    }
+};
+
+export const recuperarPassword = async (email) => {
+    try {
+        const response = await axios.post('/api/public/recuperarPassword', {
+            datos: {
+                email: email
+            }
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.data?.error) {
+            throw new Error(error.response.data.error);
+        }
+        throw error;
     }
 };
 
@@ -111,5 +129,6 @@ export default {
     guardarUsuario,
     cambiarPassword,
     borrarUsuario,
-    borrarUsuariosSeleccionados
+    borrarUsuariosSeleccionados,
+    recuperarPassword
 };

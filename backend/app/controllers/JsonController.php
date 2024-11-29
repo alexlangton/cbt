@@ -8,35 +8,117 @@ class JsonController extends Controller {
 
     // Métodos de respuesta JSON
     protected function jsonResponse($data, $code = 200) {
-        header('Content-Type: application/json');
-        http_response_code($code);
+        // Asegurar que los headers no se han enviado ya
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code($code);
+            
+            // Headers de seguridad
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: DENY');
+            header('X-XSS-Protection: 1; mode=block');
+        }
         
-        // Añadir headers de seguridad
-        header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: DENY');
-        header('X-XSS-Protection: 1; mode=block');
-        
-        echo json_encode($this->formatearRespuesta($data));
-        exit;
+        try {
+            $jsonOptions = JSON_UNESCAPED_UNICODE | 
+                          JSON_UNESCAPED_SLASHES | 
+                          JSON_INVALID_UTF8_SUBSTITUTE;
+            
+            if ($this->f3->get('DEBUG')) {
+                $jsonOptions |= JSON_PRETTY_PRINT;
+            }
+            
+            $response = json_encode($this->formatearRespuesta($data), $jsonOptions);
+            
+            if ($response === false) {
+                throw new \Exception('Error al codificar JSON: ' . json_last_error_msg());
+            }
+            
+            echo $response;
+            exit;
+        } catch (\Exception $e) {
+            // Log del error
+            error_log("Error en jsonResponse: " . $e->getMessage());
+            
+            // Respuesta de error genérica
+            echo json_encode([
+                'estado' => 'error',
+                'mensaje' => 'Error interno del servidor',
+                'codigo' => 500
+            ]);
+            exit;
+        }
     }
 
     private function formatearRespuesta($data) {
-        if (is_array($data) && isset($data['estado'])) {
-            return $data;
+        try {
+            if (is_array($data) && isset($data['estado'])) {
+                return $this->sanitizarRespuesta($data);
+            }
+            
+            return [
+                'estado' => 'exito',
+                'datos' => $this->sanitizarRespuesta($data),
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        } catch (\Exception $e) {
+            error_log("Error en formatearRespuesta: " . $e->getMessage());
+            return [
+                'estado' => 'error',
+                'mensaje' => 'Error al procesar la respuesta',
+                'codigo' => 500
+            ];
         }
-        return [
-            'estado' => 'exito',
-            'datos' => $data,
-            'timestamp' => date('Y-m-d H:i:s')  // Añadir timestamp
-        ];
+    }
+
+    protected function sanitizarRespuesta($data) {
+        if (is_null($data)) {
+            return null;
+        }
+        
+        if (is_string($data)) {
+            return $this->sanitizarString($data);
+        }
+        
+        if (is_array($data)) {
+            $resultado = [];
+            foreach ($data as $key => $value) {
+                $resultado[$key] = $this->sanitizarRespuesta($value);
+            }
+            return $resultado;
+        }
+        
+        return $data;
+    }
+
+    private function sanitizarString($texto) {
+        if (empty($texto)) {
+            return $texto;
+        }
+        
+        try {
+            $encoding = mb_detect_encoding($texto, ['UTF-8', 'ISO-8859-1', 'ASCII'], true);
+            return mb_convert_encoding($texto, 'UTF-8', $encoding ?: 'UTF-8');
+        } catch (\Exception $e) {
+            error_log("Error en sanitizarString: " . $e->getMessage());
+            return $texto;
+        }
     }
 
     protected function respuestaExito($datos = null, $mensaje = null, $codigo = 200, $metadata = null) {
         $respuesta = ['estado' => 'exito'];
         
-        if ($mensaje) $respuesta['mensaje'] = $mensaje;
-        if ($datos !== null) $respuesta['datos'] = $datos;
-        if ($metadata) $respuesta['metadata'] = $metadata;
+        if ($mensaje) {
+            $respuesta['mensaje'] = $this->sanitizarRespuesta($mensaje);
+        }
+        if ($datos !== null) {
+            $respuesta['datos'] = is_array($datos) ? 
+                array_map([$this, 'sanitizarRespuesta'], $datos) : 
+                $this->sanitizarRespuesta($datos);
+        }
+        if ($metadata) {
+            $respuesta['metadata'] = $metadata;
+        }
         
         return $this->jsonResponse($respuesta, $codigo);
     }

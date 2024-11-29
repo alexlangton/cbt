@@ -1,30 +1,70 @@
 <?php
 
-$f3->route('GET  /api/test', 'ParkingsController->obtener');
-$f3->route('POST /api/crearUsuario', 'CrearUsuarioController->crearUsuario');
+// Rutas públicas
+$rutasPublicas = [
+    'POST /api/public/login' => 'AutenticacionController->login',
+    'POST /api/public/logout' => 'AutenticacionController->logout',
+    'POST /api/public/recuperarPassword' => 'AutenticacionController->recuperarPassword',
+    'GET /api/public/info' => 'AutenticacionController->obtenerInfo'
+];
 
-// Rutas de autenticación
-$f3->route('POST /api/public/login', 'AutenticacionController->login');
-$f3->route('POST /api/public/logout', 'AutenticacionController->logout');
-$f3->route('POST /api/public/recuperarPassword', 'AutenticacionController->recuperarPassword');
-$f3->route('GET  /api/datosLeaflet', 'LeafletController->obtenerDatosLeaflet');
-$f3->route('GET  /api/obtenerCartelesActualizados', 'CartelController->obtenerCartelesActualizados');
+// Rutas auxiliares del sistema
+$rutasAuxiliaresSistema = [
+    'GET  /api/test' => 'ParkingsController->obtener',
+    'GET  /api/rutas' => 'SistemaController->obtenerRutas',
+    'POST /api/crearUsuario' => 'CrearUsuarioController->crearUsuario'    
+];
 
-// Configuración de recursos (Para prohibir DELETE: => ['metodos_prohibidos' => ['DELETE']])
+// Rutas del sistema
+$rutasSistema = [  
+    'GET  /api/datosLeaflet' => 'LeafletController->obtenerDatosLeaflet',
+    'GET  /api/obtenerCartelesActualizados' => 'CartelController->obtenerCartelesActualizados'
+];
+
+// Rutas de backup y base de datos
+$rutasBackup = [
+    'GET  /api/database/download' => 'BaseDatosController->download',
+    'POST /api/backup/create' => 'BaseDatosController->createBackup',
+    'GET  /api/backup/ultimo' => 'BaseDatosController->getUltimo'
+];
+
+// Registrar rutas públicas
+foreach ($rutasPublicas as $ruta => $controlador) {
+    $f3->route($ruta, $controlador);
+}
+
+// Registrar rutas auxiliares del sistema
+foreach ($rutasAuxiliaresSistema as $ruta => $controlador) {
+    $f3->route($ruta, $controlador);
+}
+
+// Registrar rutas del sistema
+foreach ($rutasSistema as $ruta => $controlador) {
+    $f3->route($ruta, $controlador);
+}
+
+// Registrar rutas de backup
+foreach ($rutasBackup as $ruta => $controlador) {
+    $f3->route($ruta, $controlador);
+}
+
+// Configuración de recursos CRUD
 $recursos = [
     'parkings',
     'carteles',
     'tiposcarteles',
-    'usuarios'
+    'usuarios',
+    'logs'
 ];
 
-// Configuración de rutas
+// Configuración de rutas CRUD
 $rutas_crud = [
     'GET /@recurso' => 'obtenerconfiltros',
     'GET /@recurso/@id' => 'obtener',
     'POST /@recurso' => 'guardarnuevo',
     'PUT /@recurso/@id' => 'guardar',
-    'DELETE /@recurso/@id' => 'borrar'
+    'DELETE /@recurso' => 'borrar',
+    'DELETE /@recurso/@id' => 'borrar'    
 ];
 
 $rutas_adicionales = [

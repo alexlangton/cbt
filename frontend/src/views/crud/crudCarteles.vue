@@ -1,10 +1,42 @@
 <script setup>
+    // Importar componentes PrimeVue
+    import Button from 'primevue/button';
+    import Column from 'primevue/column';
+    import DataTable from 'primevue/datatable';
+    import Dialog from 'primevue/dialog';
+    import IconField from 'primevue/iconfield';
+    import InputIcon from 'primevue/inputicon';
+    import InputText from 'primevue/inputtext';
+    import Toolbar from 'primevue/toolbar';
+    import { useToast } from 'primevue/usetoast';
+    
+    // Componentes locales y servicios
     import DialogCartel from '@/components/CartelDialog.vue';
     import cartelService from '@/services/cartelService';
-    import { FilterMatchMode } from '@primevue/core/api';
-    import { useToast } from 'primevue/usetoast';
+    import tiposCartelService from '@/services/tiposCartelService';
     import { onBeforeMount, onMounted, ref } from 'vue';
 
+    // Definir FilterMatchMode localmente
+    const FilterMatchMode = {
+        STARTS_WITH: 'startsWith',
+        CONTAINS: 'contains',
+        NOT_CONTAINS: 'notContains',
+        ENDS_WITH: 'endsWith',
+        EQUALS: 'equals',
+        NOT_EQUALS: 'notEquals',
+        IN: 'in',
+        LESS_THAN: 'lt',
+        LESS_THAN_OR_EQUAL_TO: 'lte',
+        GREATER_THAN: 'gt',
+        GREATER_THAN_OR_EQUAL_TO: 'gte',
+        BETWEEN: 'between',
+        DATE_IS: 'dateIs',
+        DATE_IS_NOT: 'dateIsNot',
+        DATE_BEFORE: 'dateBefore',
+        DATE_AFTER: 'dateAfter'
+    };
+
+    // Inicialización del toast
     const toast = useToast();
 
     // Variables reactivas
@@ -23,6 +55,7 @@
     const cartelesSeleccionados = ref([]);
     const dt = ref(null);
     const filters = ref({});
+    const tiposCartel = ref([]);
 
     // Función para resetear el objeto cartel
     const resetCartel = () => {
@@ -55,9 +88,6 @@
     const handleGuardarCartel = async (cartelData) => {
         try {
             await cartelService.guardarCartel(cartelData, !cartelData.id);
-            await cargarCartelesAxios();
-            cartelDialog.value = false;
-            mostrarToast('success', 'OK', 'Cartel guardado correctamente');
         } catch (error) {
             manejarError(error, 'Error al guardar cartel');
         }
@@ -120,8 +150,15 @@
         initFilters();
     });
 
-    onMounted(() => {
-        cargarCartelesAxios();
+    onMounted(async () => {
+        try {
+            await Promise.all([
+                cargarCartelesAxios(),
+                cargarTiposCartel()
+            ]);
+        } catch (error) {
+            manejarError(error, 'Error al cargar datos iniciales');
+        }
     });
 
     const clickConfirmarBorradoSeleccionados = () => {
@@ -140,203 +177,190 @@
         };
         cartelDialog.value = true;
     };
+
+    const manejarGuardadoExitoso = (resultado) => {
+        console.log('Cartel guardado exitosamente:', resultado);
+        cargarCartelesAxios();
+        mostrarToast('success', 'Éxito', 'Cartel guardado correctamente');
+    };
+
+    const cerrarDialog = () => {
+        cartelDialog.value = false;
+        resetCartel();
+    };
+
+    // Función para manejar errores (si no la tienes ya)
+    const manejarError = (error, mensaje) => {
+        console.error(mensaje, error);
+        mostrarToast('error', 'Error', mensaje);
+    };
+
+    // Cargar tipos de cartel
+    const cargarTiposCartel = async () => {
+        try {
+            tiposCartel.value = await tiposCartelService.cargarTiposCartel();
+        } catch (error) {
+            manejarError(error, 'Error al cargar tipos de cartel');
+        }
+    };
+
+    // Obtener descripción del tipo de cartel
+    const obtenerDescripcionTipoCartel = (idTipoCartel) => {
+        const tipo = tiposCartel.value.find(t => t.id === idTipoCartel);
+        return tipo?.descripcion || 'No especificado';
+    };
 </script>
 
 <template>
-    <div>
+    <div class="layout-content">
         <div class="card">
-            <Toolbar class="mb-6">
-                <template #start>
-                    <Button
-                        label="Nuevo Cartel"
-                        icon="pi pi-plus"
-                        class="mr-2"
-                        severity="secondary"
-                        @click="nuevoCartel"
-                    />
-                    <Button
-                        label="Borrar"
-                        icon="pi pi-trash"
-                        severity="secondary"
-                        @click="clickConfirmarBorradoSeleccionados"
-                        :disabled="
-                            !cartelesSeleccionados ||
-                            !cartelesSeleccionados.length
-                        "
-                    />
-                </template>
+            <div class="surface-section p-4">
+                <!-- Título y Toolbar -->
+                <div class="flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0">Gestión de Carteles</h5>
+                </div>
 
-                <template #end>
-                    <Button
-                        label="CSV"
-                        icon="pi pi-upload"
-                        severity="secondary"
-                        @click="exportCSV($event)"
-                    />
-                </template>
-            </Toolbar>
-
-            <DataTable
-                ref="dt"
-                :value="carteles"
-                v-model:selection="cartelesSeleccionados"
-                dataKey="id"
-                :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25]"
-                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} carteles"
-                exportFilename="Carteles"
-            >
-                <template #header>
-                    <div
-                        class="flex flex-wrap gap-2 items-center justify-between"
-                    >
-                        <h1 class="m-0">Carteles</h1>
-                        <IconField>
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
-                            <InputText
-                                v-model="filters['global'].value"
-                                placeholder="Buscar..."
-                            />
-                        </IconField>
-                    </div>
-                </template>
-
-                <Column
-                    selectionMode="multiple"
-                    headerStyle="width: 3rem"
-                ></Column>
-                <Column
-                    field="nombre"
-                    header="Nombre"
-                    :sortable="true"
-                    headerStyle="width:20%; min-width:10rem;"
-                ></Column>
-                <Column
-                    field="id_tipocartel"
-                    header="Tipo"
-                    :sortable="true"
-                    headerStyle="width:10%; min-width:8rem;"
-                ></Column>
-                <Column
-                    field="latitud"
-                    header="Latitud"
-                    :sortable="true"
-                    headerStyle="width:15%; min-width:10rem;"
-                ></Column>
-                <Column
-                    field="longitud"
-                    header="Longitud"
-                    :sortable="true"
-                    headerStyle="width:15%; min-width:10rem;"
-                ></Column>
-                <Column
-                    field="rotativo"
-                    header="Texto Rotativo"
-                    :sortable="true"
-                    headerStyle="width:30%; min-width:15rem;"
-                ></Column>
-
-                <Column headerStyle="min-width:10rem;">
-                    <template #body="slotProps">
+                <!-- Toolbar con botones -->
+                <Toolbar class="mb-4">
+                    <template #start>
                         <Button
-                            icon="pi pi-pencil"
+                            label="Nuevo Cartel"
+                            icon="pi pi-plus"
                             class="mr-2"
-                            rounded
+                            severity="secondary"
                             outlined
-                            @click="clickEditarCartel(slotProps.data.id)"
+                            @click="nuevoCartel"
                         />
                         <Button
+                            label="Borrar"
                             icon="pi pi-trash"
-                            class="mt-2"
-                            severity="danger"
-                            rounded
+                            severity="secondary"
                             outlined
-                            @click="clickConfirmarBorrarCartel(slotProps.data)"
+                            @click="clickConfirmarBorradoSeleccionados"
+                            :disabled="!cartelesSeleccionados?.length"
                         />
                     </template>
-                </Column>
-            </DataTable>
 
-            <!-- Reemplazar el diálogo anterior por el nuevo componente -->
-            <DialogCartel
-                v-model:visible="cartelDialog"
-                :cartelData="cartel"
-                :esModoEdicion="!!cartel.id"
-                @guardar="handleGuardarCartel"
-                @update:visible="(val) => (cartelDialog = val)"
-            />
+                    <template #end>
+                        <Button
+                            label="Exportar CSV"
+                            icon="pi pi-upload"
+                            severity="secondary"
+                            outlined
+                            @click="exportCSV"
+                        />
+                    </template>
+                </Toolbar>
 
-            <!-- Diálogo de confirmación para borrar un cartel -->
-            <Dialog
-                v-model:visible="borrarCartelDialog"
-                :style="{ width: '450px' }"
-                header="Confirma el borrado del cartel"
-                :modal="true"
-            >
-                <div class="flex align-items-center justify-content-center">
-                    <i
-                        class="pi pi-exclamation-triangle mr-3"
-                        style="font-size: 2rem"
-                    />
-                    <span v-if="cartel"
-                        >Seguro que quieres borrar el cartel con ID
-                        <b>{{ cartel.id }}</b
-                        >?</span
-                    >
+                <!-- Buscador -->
+                <div class="flex justify-content-end mb-4">
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
+                        <InputText
+                            v-model="filters['global'].value"
+                            placeholder="Buscar..."
+                        />
+                    </IconField>
                 </div>
-                <template #footer>
-                    <Button
-                        label="No"
-                        icon="pi pi-times"
-                        text
-                        @click="borrarCartelDialog = false"
-                    />
-                    <Button
-                        label="Sí"
-                        icon="pi pi-check"
-                        text
-                        @click="clickDeleteCartel"
-                    />
-                </template>
-            </Dialog>
 
-            <!-- Diálogo de confirmación para borrar carteles seleccionados -->
-            <Dialog
-                v-model:visible="borrarCartelesDialog"
-                :style="{ width: '450px' }"
-                header="Atención, selección múltiple de carteles."
-                :modal="true"
-            >
-                <div class="flex align-items-center justify-content-center">
-                    <i
-                        class="pi pi-exclamation-triangle mr-3"
-                        style="font-size: 2rem"
+                <!-- DataTable -->
+                <DataTable
+                    ref="dt"
+                    :value="carteles"
+                    v-model:selection="cartelesSeleccionados"
+                    dataKey="id"
+                    :paginator="true"
+                    :rows="10"
+                    :filters="filters"
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                    :rowsPerPageOptions="[5, 10, 25]"
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} carteles"
+                    class="p-datatable-sm"
+                    stripedRows
+                    tableStyle="min-width: 50rem"
+                >
+                    <Column
+                        selectionMode="multiple"
+                        style="width: 3rem"
                     />
-                    <span
-                        >¿Estás seguro de que quieres borrar los carteles
-                        seleccionados?</span
+                    
+                    <Column
+                        field="nombre"
+                        header="Nombre"
+                        :sortable="true"
+                        style="width: 40%"
+                    />
+                    
+                    <Column
+                        field="id_tipocartel"
+                        header="Tipo"
+                        :sortable="true"
+                        style="width: 30%"
                     >
-                </div>
-                <template #footer>
-                    <Button
-                        label="No"
-                        icon="pi pi-times"
-                        text
-                        @click="borrarCartelesDialog = false"
-                    />
-                    <Button
-                        label="Sí"
-                        icon="pi pi-check"
-                        text
-                        @click="clickBorrarCartelesSeleccionados"
-                    />
-                </template>
-            </Dialog>
+                        <template #body="{ data }">
+                            {{ obtenerDescripcionTipoCartel(data.id_tipocartel) }}
+                        </template>
+                    </Column>
+
+                    <Column style="width: 10rem">
+                        <template #body="slotProps">
+                            <div class="flex gap-2 justify-content-center">
+                                <Button
+                                    icon="pi pi-pencil"
+                                    rounded
+                                    outlined
+                                    @click="clickEditarCartel(slotProps.data.id)"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    rounded
+                                    outlined
+                                    @click="clickConfirmarBorrarCartel(slotProps.data)"
+                                />
+                            </div>
+                        </template>
+                    </Column>
+                </DataTable>
+
+                <!-- Diálogos -->
+                <DialogCartel
+                    v-model:visible="cartelDialog"
+                    :cartelData="cartel"
+                    :esModoEdicion="!!cartel.id"
+                    @guardadoExitoso="manejarGuardadoExitoso"
+                    @recargarDatos="cargarCartelesAxios"
+                    @cerrar="cerrarDialog"
+                />
+
+                <!-- Diálogos de confirmación -->
+                <Dialog
+                    v-model:visible="borrarCartelDialog"
+                    :style="{ width: '450px' }"
+                    header="Confirmar borrado"
+                    :modal="true"
+                >
+                    <!-- ... contenido del diálogo ... -->
+                </Dialog>
+
+                <Dialog
+                    v-model:visible="borrarCartelesDialog"
+                    :style="{ width: '450px' }"
+                    header="Confirmar borrado múltiple"
+                    :modal="true"
+                >
+                    <!-- ... contenido del diálogo ... -->
+                </Dialog>
+            </div>
         </div>
+        <Toast />
     </div>
 </template>
+
+<style lang="scss">
+.p-toast {
+    z-index: 9999;
+}
+</style>

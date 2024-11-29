@@ -12,18 +12,40 @@ $f3->set('BASE', '/');
 
 // Cargar configuración básica
 $f3->config('config/config.ini');
+
+// Logging de todas las peticiones usando nuestro Logger
+$f3->route('GET|POST|PUT|DELETE|PATCH *', function($f3) {
+    $logger = new Logger($f3);
+    
+    $request = [
+        'method' => $f3->get('VERB'),
+        'url' => $f3->get('URI'),
+        'query_params' => $f3->get('GET'),
+        'body_params' => $f3->get('POST'),
+        'headers' => getallheaders(),
+        'ip' => $f3->get('IP'),
+        'user_agent' => $f3->get('AGENT')
+    ];
+
+    // Capturar body raw para peticiones POST/PUT/PATCH/DELETE
+    if (in_array($f3->get('VERB'), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
+        $rawData = file_get_contents('php://input');
+        if (!empty($rawData)) {
+            $request['raw_body'] = $rawData;
+        }
+    }
+
+    $mensaje = sprintf(
+        "%s %s - IP: %s", 
+        $request['method'],
+        $request['url'],
+        $request['ip']
+    );
+
+    $logger->request($mensaje, $request);
+}, ['before' => true]);
+
 // Cargar rutas
 require 'config/routes.php';
-
-// Manejo de errores para API REST
-// $f3->set('ONERROR', function($f3) {
-//     header('Content-Type: application/json');
-//     echo json_encode([
-//         'error' => true,
-//         'code' => $f3->get('ERROR.code'),
-//         'message' => $f3->get('ERROR.text'),
-//         'timestamp' => date('Y-m-d H:i:s')
-//     ]);
-// });
 
 $f3->run();

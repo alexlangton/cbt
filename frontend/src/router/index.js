@@ -14,10 +14,10 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Login.vue')
         },
         {
-            path: '/auth/nuevaContrasenia', // Make sure this is publicly accessible
+            path: '/auth/nuevaContrasenia',
             name: 'nuevaContrasenia',
             component: () => import('@/views/pages/auth/NuevaContrasenia.vue'),
-            meta: { requiresAuth: false } // Ensure no auth required
+            meta: { requiresAuth: false }
         },
         {
             path: '/app',
@@ -36,8 +36,7 @@ const router = createRouter({
                 {
                     path: '/crud/crudTiposCarteles',
                     name: 'crudTiposCarteles',
-                    component: () =>
-                        import('@/views/crud/crudTiposCarteles.vue')
+                    component: () => import('@/views/crud/crudTiposCarteles.vue')
                 },
                 {
                     path: '/crud/crudParking',
@@ -52,8 +51,23 @@ const router = createRouter({
                 {
                     path: '/documentation',
                     name: 'documentation',
-                    component: () =>
-                        import('@/views/utilidades/Documentation.vue')
+                    component: () => import('@/views/utilidades/Documentation.vue')
+                },
+                {
+                    path: '/pages/backup',
+                    name: 'backup',
+                    component: () => import('@/views/pages/BackupView.vue'),
+                    meta: {
+                        breadcrumb: [{ label: 'Backup Base de Datos' }]
+                    }
+                },
+                {
+                    path: '/pages/logs',
+                    name: 'logs',
+                    component: () => import('@/views/pages/LogViewer.vue'),
+                    meta: {
+                        breadcrumb: [{ label: 'Logs del Sistema' }]
+                    }
                 }
             ]
         },
@@ -75,7 +89,7 @@ const router = createRouter({
         // Ruta para 404
         {
             path: '/:pathMatch(.*)*',
-            redirect: '/pages/notfound' // Redirección para rutas no encontradas
+            redirect: '/pages/notfound'
         }
     ]
 });

@@ -8,6 +8,7 @@ import Card from 'primevue/card';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
+import IftaLabel from 'primevue/iftalabel';
 
 import '@/assets/styles.scss';
 import '@/assets/tailwind.css';
@@ -131,5 +132,6 @@ app.use(ToastService);
 app.component('p-card', Card);
 app.use(ConfirmationService);
 app.use(createPinia());
+app.component('IftaLabel', IftaLabel);
 
 app.mount('#app');

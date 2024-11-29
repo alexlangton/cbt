@@ -1,23 +1,29 @@
-import axios from 'axios';
+import axios from './axios';
 
-const BASE_URL = 'http://localhost/api/carteles';
+const BASE_URL = '/api/carteles';
 
-const formatearCartel = (cartel) => {
+const formatearCartel = (cartel, incluirId = true) => {
     if (!cartel) return null;
     
-    return {
-        id: cartel.id,
+    const cartelFormateado = {
         nombre: cartel.nombre?.trim() || '',
         latitud: parseFloat(cartel.latitud),
         longitud: parseFloat(cartel.longitud),
         id_tipocartel: parseInt(cartel.id_tipocartel),
         rotativo: cartel.rotativo?.trim() || ''
     };
+
+    if (incluirId && cartel.id) {
+        cartelFormateado.id = cartel.id;
+    }
+
+    return cartelFormateado;
 };
 
 export const cargarCarteles = async () => {
     try {
-        const { data: { datos: { datos: carteles } } } = await axios.get(BASE_URL);
+        const { data } = await axios.get(BASE_URL);
+        const carteles = data.datos?.datos || data.datos || [];
         return Array.isArray(carteles) ? carteles.map(formatearCartel) : [];
     } catch (error) {
         console.error('Error al cargar carteles:', error);
@@ -27,7 +33,8 @@ export const cargarCarteles = async () => {
 
 export const obtenerCartel = async (id) => {
     try {
-        const { data: { datos: { datos: cartel } } } = await axios.get(`${BASE_URL}/${id}`);
+        const { data } = await axios.get(`${BASE_URL}/${id}`);
+        const cartel = data.datos?.datos || data.datos;
         return formatearCartel(cartel);
     } catch (error) {
         console.error(`Error al obtener cartel ${id}:`, error);
@@ -37,17 +44,41 @@ export const obtenerCartel = async (id) => {
 
 export const guardarCartel = async (cartel, esNuevo = false) => {
     try {
-        const cartelFormateado = formatearCartel(cartel);
+        const cartelFormateado = formatearCartel(cartel, !esNuevo);
         if (!cartelFormateado) throw new Error('Datos de cartel inválidos');
 
-        const config = {
-            method: esNuevo ? 'post' : 'put',
-            url: esNuevo ? BASE_URL : `${BASE_URL}/${cartelFormateado.id}`,
-            data: cartelFormateado
-        };
+        console.log('Enviando cartel:', {
+            esNuevo,
+            datos: cartelFormateado,
+            url: esNuevo ? BASE_URL : `${BASE_URL}/${cartel.id}`
+        });
 
-        const { data } = await axios(config);
-        return formatearCartel(data);
+        const method = esNuevo ? 'post' : 'put';
+        const url = esNuevo ? BASE_URL : `${BASE_URL}/${cartel.id}`;
+
+        try {
+            const { data } = await axios[method](url, cartelFormateado);
+            console.log('Respuesta del servidor:', data);
+            return formatearCartel(data.datos || data);
+        } catch (error) {
+            if (error.response) {
+                console.error('Error detallado:', {
+                    status: error.response.status,
+                    headers: error.response.headers,
+                    data: error.response.data,
+                    config: error.config
+                });
+                
+                const mensaje = error.response.data?.mensaje || 'Error del servidor';
+                throw new Error(mensaje);
+            } else if (error.request) {
+                console.error('No hubo respuesta:', error.request);
+                throw new Error('No se pudo conectar con el servidor');
+            } else {
+                console.error('Error de configuración:', error.message);
+                throw error;
+            }
+        }
     } catch (error) {
         console.error('Error al guardar cartel:', error);
         throw error;

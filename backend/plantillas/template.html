@@ -1,38 +1,37 @@
 <!DOCTYPE html>
-<html lang="es">
-
+<html>
 <head>
-   <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Restablecer Contraseña</title>
+    <meta charset="UTF-8">
+    <title>{{@app_nombre}} - Recuperación de Contraseña</title>
 </head>
-
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333; margin: 0; padding: 0;">
-   <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f4f4">
-      <tr>
-         <td style="padding: 20px;">
-            <table align="center" width="600" cellpadding="0" cellspacing="0"
-               style="border-collapse: collapse; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-               <tr>
-                  <td style="padding: 40px 20px;">
-                     <h1 style="color: #333; margin-bottom: 20px; text-align: center;">Restablece tu contraseña de CartelPanel</h1>
-                     <p style="font-size: 16px; line-height: 1.6;">Haz clic en el siguiente botón para restablecer tu
-                        contraseña:</p>
-                     <p style="text-align: center; margin-top: 30px;">
-                        <a href="{{@resetLink}}"
-                           style="display: inline-block; background-color: #007bff; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 5px;">Restablecer
-                           Contraseña</a>
-                     </p>
-                     <p style="font-size: 16px; line-height: 1.6;">Si no puedes hacer clic en el botón, copia y pega la
-                        siguiente URL en tu navegador:</p>
-                     <p style="font-size: 16px; line-height: 1.6; text-align: center;"><a href="{{@resetLink}}"
-                           style="color: #007bff; text-decoration: none;">{{@resetLink}}</a></p>
-                  </td>
-               </tr>
-            </table>
-         </td>
-      </tr>
-   </table>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 20px;">
+        <h2 style="color: #2c3e50; text-align: center;">{{@app_nombre}} - Recuperación de Contraseña</h2>
+        
+        <p>Hola,</p>
+        <p>Has solicitado restablecer tu contraseña para la cuenta asociada a {{@email}} en {{@app_nombre}}.</p>
+        
+        <p style="text-align: center;">
+            <a href="{{@url}}" 
+               style="background-color: #3498db; 
+                      color: white; 
+                      padding: 12px 24px; 
+                      text-decoration: none; 
+                      border-radius: 4px; 
+                      display: inline-block;">
+                Restablecer Contraseña
+            </a>
+        </p>
+        
+        <p><strong>Nota:</strong> Este enlace expirará en {{@expiracion}}.</p>
+        
+        <p>Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña actual seguirá siendo válida.</p>
+        
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        
+        <p style="color: #666; font-size: 12px;">
+            Este es un correo automático de {{@app_nombre}}, por favor no respondas a este mensaje.
+        </p>
+    </div>
 </body>
-
 </html>

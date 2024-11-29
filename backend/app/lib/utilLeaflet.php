@@ -44,7 +44,7 @@
       ];
    }
 
-   static function obtenerMarcadores($f3, &$latitudes, &$longitudes)
+   static function obtenerMarcadores($f3, $tipo, &$latitudes, &$longitudes)
    {
       // Inicialización
       $nuevo = [];
@@ -52,7 +52,7 @@
       $longitudes = [];
 
       // Obtención de registros
-      $registros = bdMarcadores::obtener($f3);
+      $registros = bdMarcadores::obtener($f3, $tipo);
 
       // Verifica que haya resultados antes de procesarlos
       if ($registros && is_array($registros)) {
@@ -69,27 +69,33 @@
 
                // Valida y reemplaza los valores en JSON de atributos
                $atributos = $registro['atributos'];
-               if ($atributos) {  // Asegura que atributos sea JSON válido
-                  $jsonModificado = $util->reemplazarValoresEnJson($atributos); // reemplazo de valores
-                  $atributosModificados = json_decode($jsonModificado, true); // Decodifica el JSON resultante
+               if ($atributos) {
+                  $jsonModificado = $util->reemplazarValoresEnJson($atributos);
+                  $atributosModificados = json_decode($jsonModificado, true);
                } else {
-                  error_log("Atributos no válidos o JSON mal formado para registro ID: {$registro['codinsclo']}");
-                  $atributosModificados = []; // Usa un array vacío si hay un error en atributos
+                  error_log("Atributos no válidos o JSON mal formado para registro ID: {$registro['id']}");
+                  $atributosModificados = [];
                }
 
-               // Construcción del array de resultados
-               $nuevo[] = [
+               // Construcción base del marcador
+               $marcador = [
                   'id' => $registro['id'],
-                  'codinsclo' => $registro['codinsclo'],
                   'type' => $registro['tipo'],
                   'name' => $registro['nombre'],
                   'lat' => $lat,
                   'lng' => $lng,
-                  'rotativo' => $registro['rotativo'],
                   'atributos' => $atributosModificados
                ];
+
+               // Añadir campos específicos según el tipo
+               if ($registro['tipo'] === 'parking') {
+                  $marcador['codinsclo'] = $registro['codinsclo'];
+               } elseif ($registro['tipo'] === 'cartel') {
+                  $marcador['rotativo'] = $registro['rotativo'];
+               }
+
+               $nuevo[] = $marcador;
             } else {
-               // Manejo de valores no válidos
                error_log("Valor no numérico encontrado: latitud = {$registro['latitud']}, longitud = {$registro['longitud']}");
             }
          }
@@ -99,5 +105,15 @@
 
       // Retorna el array completo con los valores modificados
       return $nuevo;
+   }
+
+   static function obtenerCarteles($f3, &$latitudes, &$longitudes)
+   {
+      return self::obtenerMarcadores($f3, 'cartel', $latitudes, $longitudes);
+   }
+
+   static function obtenerParkings($f3, &$latitudes, &$longitudes)
+   {
+      return self::obtenerMarcadores($f3, 'parking', $latitudes, $longitudes);
    }
 }
