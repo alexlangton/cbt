@@ -1,0 +1,37 @@
+// Agregar estos estilos específicos para IftaLabel en Sakai
+.p-float-label {
+    input:focus ~ label,
+    input.p-filled ~ label,
+    textarea:focus ~ label,
+    textarea.p-filled ~ label,
+    .p-inputwrapper-focus ~ label,
+    .p-inputwrapper-filled ~ label {
+        background: var(--surface-card);
+    }
+}
+
+.layout-content {
+    .p-float-label {
+        input:focus ~ label,
+        input.p-filled ~ label,
+        textarea:focus ~ label,
+        textarea.p-filled ~ label,
+        .p-inputwrapper-focus ~ label,
+        .p-inputwrapper-filled ~ label {
+            background: var(--surface-section);
+        }
+    }
+
+    .surface-ground {
+        .p-float-label {
+            input:focus ~ label,
+            input.p-filled ~ label,
+            textarea:focus ~ label,
+            textarea.p-filled ~ label,
+            .p-inputwrapper-focus ~ label,
+            .p-inputwrapper-filled ~ label {
+                background: var(--surface-ground);
+            }
+        }
+    }
+} 

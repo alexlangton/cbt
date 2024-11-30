@@ -1,0 +1,21 @@
+RewriteEngine On
+
+# Redirigir HTTPS a HTTP (si es necesario)
+RewriteCond %{HTTPS} on
+RewriteRule ^/?(.*) http://%{SERVER_NAME}%{REQUEST_URI} [R,L]
+
+RewriteBase /
+
+# Permitir acceso directo a index.html
+RewriteRule ^index\.html$ - [L]
+
+# Permitir acceso directo a la ruta específica 'nuevaContrasenia'
+RewriteRule ^auth/nuevaContrasenia$ - [L]
+
+# Bloquear acceso a cualquier otra ruta, a menos que sea un archivo o directorio existente
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Deshabilitar la lista de directorios
+Options -Indexes
