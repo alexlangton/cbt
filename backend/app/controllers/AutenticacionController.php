@@ -42,7 +42,12 @@ class AutenticacionController extends JsonController {
                 
                 // Si la ruta no es pública y la autenticación falla, lanzar excepción
                 if (is_array($resultado) && isset($resultado['codigo'])) {
-                    throw new \Exception($resultado['mensaje'], $resultado['codigo']);
+                    if ($resultado['codigo'] == 401) {
+                        // La ruta no es pública y la autenticación falló
+                        return $this->respuestaError('La ruta no es pública y el token no es correcto', 401);
+                    } else {
+                        throw new \Exception($resultado['mensaje'], $resultado['codigo']);
+                    }
                 }
             }
         } else {
@@ -312,7 +317,8 @@ class AutenticacionController extends JsonController {
                                         'id' => $usuario['id'],
                                         'nombre' => $usuario['nombre'],
                                         'email' => $usuario['email'],
-                                        'ultimo_inicio_sesion' => $usuario['ultimo_inicio_sesion']
+                                        'ultimo_inicio_sesion' => $usuario['ultimo_inicio_sesion'],
+                                        'token' => $usuario['token']
                                     ]
                                 ];
 
@@ -415,7 +421,7 @@ class AutenticacionController extends JsonController {
                 }
 
                 // Generar token único
-                $token = bin2hex(random_bytes(32));
+                $token = $this->generarToken($usuario);
 
                 // Guardar token
                 if (!$this->consultasAuth->guardarToken($usuario['id'], $token)) {

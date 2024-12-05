@@ -8,7 +8,7 @@ class Logger {
 
     public function __construct($f3) {
         $this->f3 = $f3;
-        $this->logPath = $f3->get('LOGPATH');
+        $this->logPath = $f3->get('LOGS');
         $this->idUsuario = null;
         
         if (!is_dir($this->logPath)) {
@@ -96,6 +96,10 @@ class Logger {
 
     public function request($mensaje, $metadata = null) {
         $this->log('REQUEST', $mensaje, 'peticiones.log', $metadata);
+    }
+
+    public function warning($mensaje, $metadata = null) {
+        $this->log('WARNING', $mensaje, 'warnings.log', $metadata);
     }
 
     public function getLogs($tipo = null, $desde = null, $hasta = null, $limite = 100, $pagina = 1) {

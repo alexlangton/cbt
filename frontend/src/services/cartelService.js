@@ -13,16 +13,17 @@ const formatearCartel = (cartel, incluirId = true) => {
         rotativo: cartel.rotativo?.trim() || ''
     };
 
-    if (incluirId && cartel.id) {
+    if (cartel.id) {
         cartelFormateado.id = cartel.id;
     }
-
+    
     return cartelFormateado;
 };
 
 export const cargarCarteles = async () => {
     try {
         const { data } = await axios.get(BASE_URL);
+        console.log('Carteles recibidos del servidor:', data);
         const carteles = data.datos?.datos || data.datos || [];
         return Array.isArray(carteles) ? carteles.map(formatearCartel) : [];
     } catch (error) {

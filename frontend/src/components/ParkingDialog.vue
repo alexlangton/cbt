@@ -188,12 +188,19 @@ const handleVisibleChange = (newValue) => {
     }
 };
 
+const isLoading = ref(false);
+const isFormValid = computed(() => {
+    return parking.value.codinsclo && parking.value.nombre && parking.value.direccion && parking.value.latitud && parking.value.longitud;
+});
+
 const guardarParking = async () => {
     submitted.value = true;
 
-    if (!validarParking(parking.value)) {
+    if (!isFormValid.value) {
         return;
     }
+
+    isLoading.value = true;
 
     try {
         const resultado = await parkingService.guardarParking(
@@ -218,34 +225,8 @@ const guardarParking = async () => {
         }
     } catch (error) {
         manejarError(error, 'Error al guardar parking');
-    }
-};
-
-const validarParking = (parking) => {
-    try {
-        const camposRequeridos = {
-            codinsclo: 'El código de instalación es obligatorio',
-            nombre: 'El nombre es obligatorio',
-            direccion: 'La dirección es obligatoria',
-            latitud: 'La latitud es obligatoria',
-            longitud: 'La longitud es obligatoria'
-        };
-
-        for (const [campo, mensaje] of Object.entries(camposRequeridos)) {
-            if (!parking[campo]) {
-                toast.add({
-                    severity: 'error',
-                    summary: 'Error de validación',
-                    detail: mensaje,
-                    life: 3000
-                });
-                return false;
-            }
-        }
-        return true;
-    } catch (error) {
-        manejarError(error, 'Error en la validación del parking');
-        return false;
+    } finally {
+        isLoading.value = false;
     }
 };
 
@@ -289,7 +270,7 @@ watch(() => permitirEdicionPosicion.value, (newValue) => {
 </script>
 
 <template>
-    <Dialog :visible="visible" :style="{ width: '1000px' }" :modal="true" class="p-fluid parking-dialog"
+    <Dialog :visible="visible" :style="{ width: '1200px' }" :modal="true" class="p-fluid parking-dialog"
         @update:visible="handleVisibleChange">
         <!-- Header -->
         <template #header>
@@ -302,9 +283,60 @@ watch(() => permitirEdicionPosicion.value, (newValue) => {
         </template>
 
         <!-- Contenedor principal -->
-        <div class="flex gap-3">
-            <!-- Columna izquierda: Formulario -->
-            <div class="w-8/12">
+        <div class="flex gap-4">
+            <div class="w-1/2">
+                <div class="map-container">
+                    <l-map 
+                        ref="dialogMapRef" 
+                        v-model:zoom="zoom" 
+                        v-model:center="center" 
+                        :useGlobalLeaflet="false"
+                        class="mapa-rectangular" 
+                        :class="{ 'cursor-crosshair': permitirEdicionPosicion }" 
+                        tabindex="-1"
+                        :options="{
+                            attributionControl: false,
+                            zoomControl: true,
+                            boxZoom: false,
+                            keyboard: false,
+                            tap: false
+                        }" 
+                        @ready="invalidateMapSize" 
+                        @click="handleMapClick"
+                    >
+                        <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" :attribution="''" />
+                        <l-marker v-if="parking.latitud && parking.longitud" :lat-lng="[parking.latitud, parking.longitud]">
+                            <l-icon class-name="custom-icon">
+                                <MarcadorParking 
+                                    :marcador="{
+                                        ...parking,
+                                        lat: parking.latitud,
+                                        lng: parking.longitud,
+                                        type: 'parking'
+                                    }" 
+                                    :mostrarOcupacion="false"
+                                    :mostrarNombre="true"
+                                    :esEditable="permitirEdicionPosicion" 
+                                />
+                            </l-icon>
+                        </l-marker>
+                    </l-map>
+                </div>
+                <div class="flex justify-between items-center mt-3" v-if="esModoEdicion">
+                    <label class="font-medium">Edición de coordenadas</label>
+                    <ToggleButton 
+                        v-model="permitirEdicionCoordenadas"
+                        class="p-button-sm"
+                        onLabel="Editable"
+                        offLabel="Bloqueado"
+                        onIcon="pi pi-lock-open"
+                        offIcon="pi pi-lock"
+                    />
+                </div>
+            </div>
+
+            <!-- Formulario -->
+            <div class="w-1/2">
                 <div class="card flex flex-col gap-4">
                     <!-- Código -->
                     <div class="flex flex-wrap gap-2">
@@ -341,11 +373,6 @@ watch(() => permitirEdicionPosicion.value, (newValue) => {
 
                     <!-- Coordenadas con Toggle -->
                     <div class="flex flex-col gap-2">
-                        <div class="flex justify-between items-center mb-2">
-                            <label>Coordenadas</label>
-                            <ToggleButton v-if="esModoEdicion" v-model="permitirEdicionCoordenadas" class="p-button-sm"
-                                onLabel="Editable" offLabel="Bloqueado" onIcon="pi pi-lock-open" offIcon="pi pi-lock" />
-                        </div>
                         <div class="flex gap-4">
                             <div class="flex flex-wrap gap-2 w-6/12">
                                 <label for="latitud">Latitud</label>
@@ -363,60 +390,20 @@ watch(() => permitirEdicionPosicion.value, (newValue) => {
                     </div>
                 </div>
             </div>
-
-            <!-- Columna derecha: Mapa -->
-            <div class="w-4/12">
-
-                <div class="mapa-container">
-                    <l-map ref="dialogMapRef" v-model:zoom="zoom" v-model:center="center" :useGlobalLeaflet="false"
-                        class="mapa-rectangular" :options="{
-                            attributionControl: false,
-                            zoomControl: true,
-                            boxZoom: false,
-                            keyboard: false,
-                            tap: false
-                        }" tabindex="-1" :class="{ 'cursor-crosshair': permitirEdicionPosicion }"
-                        @ready="invalidateMapSize" @click="handleMapClick">
-                        <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" :attribution="''" />
-                        <l-marker v-if="parking.latitud && parking.longitud"
-                            :lat-lng="[parking.latitud, parking.longitud]">
-                            <l-icon class-name="custom-icon">
-                                <MarcadorParking :marcador="{
-                                    ...parking,
-                                    lat: parking.latitud,
-                                    lng: parking.longitud,
-                                    type: 'parking'
-                                }" :mostrarOcupacion="false" :mostrarNombre="true"
-                                    :esEditable="permitirEdicionPosicion" />
-                            </l-icon>
-                        </l-marker>
-                    </l-map>
-                </div>
-
-            </div>
         </div>
 
         <!-- Footer -->
         <template #footer>
             <div class="flex justify-end gap-3 px-2">
-                <Button 
-                    label="Cancelar" 
-                    icon="pi pi-times" 
-                    class="p-button-text hover:bg-gray-100" 
-                    :disabled="isLoading"
-                    @click="cerrarDialog">
+                <Button label="Cancelar" icon="pi pi-times" class="p-button-text hover:bg-gray-100"
+                    :disabled="isLoading" @click="cerrarDialog">
                     <template #icon>
                         <i class="pi pi-times mr-2 text-gray-500"></i>
                     </template>
                 </Button>
-                
-                <Button 
-                    label="Guardar" 
-                    icon="pi pi-check"
-                    class="p-button-primary" 
-                    :loading="isLoading"
-                    :disabled="isLoading || (submitted && !isFormValid)"
-                    @click="guardarParking">
+
+                <Button label="Guardar" icon="pi pi-check" class="p-button-primary" :loading="isLoading"
+                    :disabled="isLoading || (submitted && !isFormValid)" @click="guardarParking">
                     <template #icon>
                         <i class="pi pi-check mr-2"></i>
                     </template>
@@ -427,176 +414,143 @@ watch(() => permitirEdicionPosicion.value, (newValue) => {
 </template>
 
 <style lang="scss" scoped>
-/* Estilos del diálogo */
-:deep(.parking-dialog) {
-    display: flex;
-    flex-direction: column;
-    height: 90vh;
+.formgrid {
+    margin-top: 1rem;
 
-    .p-dialog-content {
-        flex: 1;
-        overflow: hidden !important;
-        padding: 0.5rem !important;
-        background: var(--surface-section);
-        display: flex;
-        flex-direction: column;
-    }
-
-    .p-dialog-header {
-        padding: 0.5rem 1rem !important;
-        background: var(--surface-section);
-        border-bottom: 1px solid var(--surface-border);
-    }
-
-    .p-dialog-footer {
-        padding: 0.5rem 1rem !important;
-        background: var(--surface-section);
-        border-top: 1px solid var(--surface-border);
+    .field {
+        margin-bottom: 1.5rem;
     }
 }
 
-/* Contenedor principal */
-.flex.gap-3 {
-    flex: 1;
-    min-height: 0;
-    gap: 0.5rem !important;
-
-    > div {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
+label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
 }
 
-/* Card */
-.card {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    background: var(--surface-section);
-    padding: 0.75rem !important;
-    margin: 0 !important;
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-}
-
-/* Estilos del mapa */
-.mapa-container {
-    position: relative;
+.p-inputtext,
+.p-inputnumber,
+.p-dropdown,
+.p-textarea {
     width: 100%;
-    height: calc(100vh - 250px);
-    border: 1px solid var(--surface-border);
-    border-radius: var(--border-radius);
-    overflow: hidden;
 }
 
-.mapa-rectangular {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100% !important;
-    height: 100% !important;
-}
+.p-inputtext,
+.p-inputnumber,
+.p-dropdown,
+.p-textarea {
+    border-color: var(--surface-border);
+    background: var(--surface-ground);
+    color: var(--text-color);
+    border-radius: 4px;
+    transition: border-color 0.2s;
 
-/* Estilos de Leaflet */
-:deep {
-    .leaflet-container {
-        outline: none !important;
-        border: none !important;
-        background: var(--surface-ground) !important;
+    &:hover {
+        border-color: var(--primary-color);
     }
 
-    .leaflet-touch .leaflet-container {
-        outline: none !important;
-        border: none !important;
+    &:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 1px var(--primary-color);
     }
 
-    .leaflet-control-zoom a {
-        background-color: var(--surface-section) !important;
-        color: var(--text-color) !important;
-        border: 1px solid var(--surface-border) !important;
-
-        &:hover {
-            background-color: var(--surface-hover) !important;
-        }
-    }
-
-    .leaflet-control-attribution {
-        display: none !important;
-    }
-
-    .leaflet-crosshair {
-        cursor: crosshair !important;
-    }
-}
-
-/* Inputs y controles */
-:deep {
-    .p-inputtext,
-    .p-inputnumber-input {
-        background: var(--surface-ground);
-        border: 1px solid var(--surface-border);
-        transition: background-color 0.2s, border-color 0.2s;
-        border-radius: var(--border-radius);
-        padding: 0.25rem 0.5rem !important;
-        width: 100%;
-
-        &:hover {
-            border-color: var(--primary-color);
-        }
+    &.p-invalid {
+        border-color: var(--red-500);
 
         &:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 1px var(--primary-color);
+            box-shadow: 0 0 0 1px var(--red-500);
         }
     }
+}
 
+:deep {
     .p-togglebutton.p-button-sm {
-        background: var(--surface-section);
+        background: var(--surface-card);
         border: 1px solid var(--surface-border);
         font-size: 0.875rem;
+        color: var(--text-color);
+
+        .p-button-icon {
+            color: var(--text-color);
+        }
 
         &.p-highlight {
             background: var(--primary-color);
             border-color: var(--primary-color);
-        }
-    }
-}
+            color: var(--text-color);
 
-/* Espaciados */
-label {
-    margin-bottom: 0.25rem !important;
-}
-
-.flex.flex-col.gap-4 {
-    gap: 0.5rem !important;
-}
-
-:deep(.p-dialog-footer) {
-    @apply bg-white border-t border-gray-200;
-    padding: 1rem;
-
-    .p-button {
-        @apply transition-all duration-200;
-        
-        &.p-button-text:hover {
-            @apply bg-gray-100;
-        }
-        
-        &.p-button-primary {
-            @apply shadow-sm;
-            
             &:hover {
-                @apply shadow-md;
+                background: var(--primary-600);
+                border-color: var(--primary-600);
             }
-            
-            &:disabled {
-                @apply opacity-60 cursor-not-allowed;
+
+            .p-button-icon {
+                color: var(--text-color);
+            }
+        }
+
+        &:not(.p-highlight) {
+            &:hover {
+                background: var(--surface-hover);
+                border-color: var(--surface-border);
+                color: var(--text-color);
             }
         }
     }
+}
+
+.map-container {
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
+    margin-bottom: 0;
+
+    .mapa-rectangular {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100% !important;
+        width: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        &.cursor-crosshair {
+            cursor: crosshair !important;
+
+            :deep(.leaflet-container),
+            :deep(.leaflet-grab),
+            :deep(.leaflet-interactive) {
+                cursor: crosshair !important;
+            }
+        }
+    }
+}
+
+:deep(.p-dialog-content) {
+    padding: 1rem;
+    overflow-y: hidden !important;
+}
+
+:deep(.p-dialog) {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+:deep(.p-dialog-content) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.flex.gap-4 {
+    flex: 1;
+    min-height: 0;
+}
+
+:deep(.leaflet-container.cursor-crosshair) {
+    cursor: crosshair !important;
 }
 </style>

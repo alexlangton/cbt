@@ -12,7 +12,7 @@
     import Checkbox from 'primevue/checkbox';
 
     // Componentes locales
-    import CartelDialog from '@/components/CartelDialog.vue';
+    // import CartelDialogEdit from '@/components/CartelDialogInfo.vue';
     import ParkingDialog from '@/components/ParkingDialog.vue';
     import MarcadorCartel from '@/components/marcadores/MarcadorCartel.vue';
     import MarcadorParking from '@/components/marcadores/MarcadorParking.vue';
@@ -22,9 +22,9 @@
     import { useMapaGeneral } from '@/composables/useMapaGeneral';
     import { useMarcadores } from '@/composables/useMarcadores';
     import { obtenerParking } from '@/services/parkingService';
+    import { obtenerCartel } from '@/services/cartelService';
     import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-    import { useToast } from 'primevue/usetoast';
-    import cartelService from '@/services/cartelService';
+    import { useToast } from 'primevue/usetoast';    
     import Toast from 'primevue/toast';
     import { useMapStore } from '@/stores/mapStore';
     import { storeToRefs } from 'pinia';
@@ -54,6 +54,7 @@
 
     // Estados de diálogos
     const showCartelDialog = ref(false);
+    const showCartelEditDialog = ref(false);
     const showParkingDialog = ref(false);
     const selectedMarker = ref(null);
 
@@ -66,11 +67,6 @@
     const mapStore = useMapStore();
     const { showLegend } = storeToRefs(mapStore);
 
-    // Función para alternar la visibilidad de la leyenda
-    const toggleLegend = () => {
-        mapStore.toggleLegend();
-    };
-
     // Funciones de manejo de eventos
     const btnMarcadorClick = async (marcador) => {
         if (!marcador || !marcador.type) {
@@ -82,11 +78,16 @@
             selectedMarker.value = marcador;
 
             if (marcador.type === 'cartel') {
-                showCartelDialog.value = true;
-                return;
-            }
-
-            if (marcador.type === 'parking') {
+                const cartelData = await obtenerCartel(marcador.id);
+                if (cartelData) {
+                    selectedMarker.value = {
+                        ...marcador,
+                        ...cartelData,
+                        type: 'cartel'                        
+                    };
+                    showCartelDialog.value = true;
+                }
+            } else if (marcador.type === 'parking') {
                 if (!marcador.codinsclo) {
                     throw new Error('Identificador de parking no válido');
                 }
@@ -115,20 +116,14 @@
 
     // Computed properties
     const marcadoresFiltrados = computed(() => {
-        const filtrados = marcadores.value.filter((marcador) => {
+        return marcadores.value.filter((marcador) => {
             if (marcador.type === 'parking') {
-                console.log('Evaluando parking:', marcador.name, estado.showParkings);
                 return estado.showParkings;
-            }
-            if (marcador.type === 'cartel') {
-                console.log('Evaluando cartel:', marcador.name, estado.showCarteles);
+            } else if (marcador.type === 'cartel') {
                 return estado.showCarteles;
             }
             return false;
         });
-
-        console.log('Marcadores filtrados:', filtrados.length);
-        return filtrados;
     });
 
     const onParkingGuardado = async () => {
@@ -153,6 +148,13 @@
     // Inicialización y limpieza combinada
     const INTERVALO_SONDEO = 5000; // Extraer el intervalo como constante
 
+    onMounted(async () => {
+        iniciarPolling(INTERVALO_SONDEO);
+
+        const limpiarEventos = configurarEventos();
+        onUnmounted(limpiarEventos);
+    });
+
     const configurarEventos = () => {
         const iniciarSondeo = () => iniciarPolling(INTERVALO_SONDEO);
 
@@ -166,14 +168,9 @@
         };
     };
 
-    onMounted(async () => {
-        iniciarPolling(INTERVALO_SONDEO);
-        const limpiarEventos = configurarEventos();
-        onUnmounted(limpiarEventos);
-    });
-
     const cerrarDialogos = () => {
         showCartelDialog.value = false;
+        showCartelEditDialog.value = false;
         showParkingDialog.value = false;
         selectedMarker.value = null;
     };
@@ -189,14 +186,8 @@
                 };
             }
             
-            await cargarDatos();
+            await obtenerMarcadores();            
             
-            toast.add({
-                severity: 'success',
-                summary: 'Éxito',
-                detail: 'Cartel actualizado correctamente',
-                life: 3000
-            });
         } catch (error) {
             console.error('Error al actualizar cartel:', error);
             toast.add({
@@ -208,37 +199,17 @@
         }
     };
 
-    const cargarDatos = async () => {
-        try {
-            const datos = await cartelService.cargarCarteles();
-            marcadores.value = datos.map(cartel => ({
-                ...cartel,
-                type: 'cartel',
-                lat: cartel.latitud,
-                lng: cartel.longitud,
-                name: cartel.nombre
-            }));
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: error.message || 'Error al cargar los datos',
-                life: 3000
-            });
-            throw error; // Re-lanzar el error para manejo superior si es necesario
-        }
-    };
-
-    // Cargar datos iniciales
-    onMounted(() => {
-        cargarDatos();
-    });
-
     // En el componente que contiene la leyenda
     watch(showLegend, (newValue) => {
         console.log('Estado de la leyenda cambiado a:', newValue);
     });
+
+    // Función para manejar la edición del cartel
+    const handleEditarCartel = (cartel) => {
+        selectedMarker.value = cartel;
+        showCartelDialog.value = false;
+        showCartelEditDialog.value = true;
+    };
 </script>
 
 <template>
@@ -345,19 +316,27 @@
             }"
         />
 
-        <CartelDialog
+        <CartelDialogInfo
             v-model:visible="showCartelDialog"
             :marker="selectedMarker"
-            :es-modo-edicion="true"
             origen="mapa"
-            @guardadoExitoso="onCartelGuardado"
-            @recargarDatos="cargarDatos"
+            @editarCartel="handleEditarCartel"
             @update:visible="(val) => {
                 if (!val) {
                     selectedMarker = null;
                     showCartelDialog = false;
                 }
             }"
+        />
+
+        <!-- Diálogo de edición del cartel -->
+        <CartelDialogEdit
+            v-if="showCartelEditDialog"
+            v-model:visible="showCartelEditDialog"
+            :cartelData="selectedMarker"
+            :esModoEdicion="true"
+            @guardadoExitoso="onCartelGuardado"
+            @cerrar="cerrarDialogos"
         />
     </div>
 </template>
@@ -477,14 +456,6 @@
         white-space: nowrap;
     }
 
-    .mapa-container {
-        height: 100vh; /* altura total de la ventana */
-        height: 100dvh; /* altura dinámica de la ventana (mejor soporte móvil) */
-        max-height: calc(100vh - var(--page-padding, 2rem));
-        display: flex;
-        flex-direction: column;
-    }
-
     .mapa-leaflet {
         flex: 1;
         min-height: 0; /* importante para que flex funcione correctamente */
@@ -501,12 +472,6 @@
     :deep(.layout-main) {
         flex: 1;
         min-height: 0;
-    }
-
-    /* Estilos para debug */
-    .mapa-container {
-        border: 2px solid blue;
-        min-height: calc(100vh - 9rem);
     }
 
     .leaflet-control {

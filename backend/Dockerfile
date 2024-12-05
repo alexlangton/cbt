@@ -37,6 +37,22 @@ RUN mkdir -p /var/www/html/database \
     && chown -R www-data:www-data /var/www/html/database \
     && chmod -R 777 /var/www/html/database
 
+# Instalar cron y curl
+RUN apt-get update && apt-get install -y \
+    cron \
+    curl
+
+# Configurar cron
+COPY docker/crontab /etc/cron.d/actualizador-contadores
+RUN chmod 0644 /etc/cron.d/actualizador-contadores && \
+    chown root:root /etc/cron.d/actualizador-contadores && \
+    touch /var/log/cron.log && \
+    chmod 0666 /var/log/cron.log
+
+# Iniciar cron junto con Apache
+COPY docker/start.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/start.sh
+
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+CMD ["/usr/local/bin/start.sh"]

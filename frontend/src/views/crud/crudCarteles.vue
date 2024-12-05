@@ -11,10 +11,11 @@
     import { useToast } from 'primevue/usetoast';
     
     // Componentes locales y servicios
-    import DialogCartel from '@/components/CartelDialog.vue';
+    import DialogCartel from '@/components/CartelDialogEdit.vue';
     import cartelService from '@/services/cartelService';
     import tiposCartelService from '@/services/tiposCartelService';
     import { onBeforeMount, onMounted, ref } from 'vue';
+    import CartelDialogInfo from '@/components/CartelDialogInfo.vue';
 
     // Definir FilterMatchMode localmente
     const FilterMatchMode = {
@@ -42,20 +43,22 @@
     // Variables reactivas
     const carteles = ref([]);
     const cartel = ref({
-        id: null,
+        id: '',
         nombre: '',
         latitud: null,
         longitud: null,
         id_tipocartel: null,
         rotativo: ''
     });
-    const cartelDialog = ref(false);
+    const CartelDialogEdit = ref(false);
     const borrarCartelDialog = ref(false);
     const borrarCartelesDialog = ref(false);
     const cartelesSeleccionados = ref([]);
     const dt = ref(null);
     const filters = ref({});
     const tiposCartel = ref([]);
+    const showCartelInfoDialog = ref(false);
+    const selectedMarker = ref(null);
 
     // Función para resetear el objeto cartel
     const resetCartel = () => {
@@ -98,7 +101,7 @@
         try {
             cartel.value = await cartelService.obtenerCartel(id);
             console.log('Cartel obtenido:', cartel.value);
-            cartelDialog.value = true;
+            CartelDialogEdit.value = true;
         } catch (error) {
             manejarError(error, 'Error al cargar cartel');
         }
@@ -175,17 +178,16 @@
             id_tipocartel: null,
             rotativo: ''
         };
-        cartelDialog.value = true;
+        CartelDialogEdit.value = true;
     };
 
     const manejarGuardadoExitoso = (resultado) => {
         console.log('Cartel guardado exitosamente:', resultado);
-        cargarCartelesAxios();
-        mostrarToast('success', 'Éxito', 'Cartel guardado correctamente');
+        cargarCartelesAxios();        
     };
 
     const cerrarDialog = () => {
-        cartelDialog.value = false;
+        CartelDialogEdit.value = false;
         resetCartel();
     };
 
@@ -208,6 +210,25 @@
     const obtenerDescripcionTipoCartel = (idTipoCartel) => {
         const tipo = tiposCartel.value.find(t => t.id === idTipoCartel);
         return tipo?.descripcion || 'No especificado';
+    };
+
+    // Función para mostrar la información del cartel
+    const mostrarInfoCartel = async (cartelData) => {
+        try {
+            // Formatear el cartel en el formato que espera CartelDialogInfo
+            selectedMarker.value = {
+                id: cartelData.id,
+                type: 'cartel',
+                name: cartelData.nombre,
+                lat: cartelData.latitud,
+                lng: cartelData.longitud,
+                rotativo: cartelData.rotativo,
+                id_tipocartel: cartelData.id_tipocartel
+            };
+            showCartelInfoDialog.value = true;
+        } catch (error) {
+            manejarError(error, 'Error al cargar información del cartel');
+        }
     };
 </script>
 
@@ -285,6 +306,13 @@
                         selectionMode="multiple"
                         style="width: 3rem"
                     />
+
+                    <Column
+                        field="id"
+                        header="ID"
+                        :sortable="true"
+                        style="width: 10%"
+                    />
                     
                     <Column
                         field="nombre"
@@ -304,14 +332,23 @@
                         </template>
                     </Column>
 
-                    <Column style="width: 10rem">
+                    <Column style="width: 15rem">
                         <template #body="slotProps">
                             <div class="flex gap-2 justify-content-center">
+                                <Button
+                                    icon="pi pi-info-circle"
+                                    rounded
+                                    outlined
+                                    severity="info"
+                                    @click="mostrarInfoCartel(slotProps.data)"
+                                    v-tooltip.top="'Ver información'"
+                                />
                                 <Button
                                     icon="pi pi-pencil"
                                     rounded
                                     outlined
                                     @click="clickEditarCartel(slotProps.data.id)"
+                                    v-tooltip.top="'Editar cartel'"
                                 />
                                 <Button
                                     icon="pi pi-trash"
@@ -319,6 +356,7 @@
                                     rounded
                                     outlined
                                     @click="clickConfirmarBorrarCartel(slotProps.data)"
+                                    v-tooltip.top="'Eliminar cartel'"
                                 />
                             </div>
                         </template>
@@ -327,7 +365,7 @@
 
                 <!-- Diálogos -->
                 <DialogCartel
-                    v-model:visible="cartelDialog"
+                    v-model:visible="CartelDialogEdit"
                     :cartelData="cartel"
                     :esModoEdicion="!!cartel.id"
                     @guardadoExitoso="manejarGuardadoExitoso"
@@ -342,7 +380,24 @@
                     header="Confirmar borrado"
                     :modal="true"
                 >
-                    <!-- ... contenido del diálogo ... -->
+                    <div class="confirmation-content">
+                        <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem" />
+                        <span v-if="cartel">¿Está seguro que desea borrar el cartel <b>{{ cartel.nombre }}</b>?</span>
+                    </div>
+                    <template #footer>
+                        <Button
+                            label="No"
+                            icon="pi pi-times"
+                            class="p-button-text"
+                            @click="borrarCartelDialog = false"
+                        />
+                        <Button
+                            label="Sí"
+                            icon="pi pi-check"
+                            class="p-button-danger"
+                            @click="clickDeleteCartel"
+                        />
+                    </template>
                 </Dialog>
 
                 <Dialog
@@ -353,6 +408,18 @@
                 >
                     <!-- ... contenido del diálogo ... -->
                 </Dialog>
+
+                <!-- Añadir el diálogo de información -->
+                <CartelDialogInfo
+                    v-model:visible="showCartelInfoDialog"
+                    :marker="selectedMarker"
+                    @update:visible="(val) => {
+                        if (!val) {
+                            selectedMarker = null;
+                            showCartelInfoDialog = false;
+                        }
+                    }"
+                />
             </div>
         </div>
         <Toast />
@@ -362,5 +429,10 @@
 <style lang="scss">
 .p-toast {
     z-index: 9999;
+}
+
+// Añadir estilos para los tooltips si no los tienes
+:deep(.p-tooltip) {
+    font-size: 0.875rem;
 }
 </style>

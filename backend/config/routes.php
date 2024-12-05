@@ -4,8 +4,11 @@
 $rutasPublicas = [
     'POST /api/public/login' => 'AutenticacionController->login',
     'POST /api/public/logout' => 'AutenticacionController->logout',
-    'POST /api/public/recuperarPassword' => 'AutenticacionController->recuperarPassword',
-    'GET /api/public/info' => 'AutenticacionController->obtenerInfo'
+    'GET /api/public/info' => 'AutenticacionController->obtenerInfo',
+    'POST /api/public/recuperarPassword' => 'AutenticacionController->recuperarPassword',    
+    'PUT /api/public/cambiarPassword' => 'AutenticacionController->cambiarPassword',
+    'GET /api/public/actualizarContadores' => 'ContadoresController->actualizarTodosLosContadores',
+    'GET /api/integration/panel-info/@id' => 'IntegracionController->obtenerInfoCartel'
 ];
 
 // Rutas auxiliares del sistema

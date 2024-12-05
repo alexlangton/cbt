@@ -77,12 +77,7 @@
                     label: 'Login',
                     icon: 'pi pi-sign-in',
                     to: '/auth/login'
-                },
-                {
-                    label: 'Nueva Contraseña',
-                    icon: 'pi pi-key',
-                    to: '/auth/nuevaContrasenia'
-                },
+                },                
                 {
                     label: 'Acceso Denegado',
                     icon: 'pi pi-lock',

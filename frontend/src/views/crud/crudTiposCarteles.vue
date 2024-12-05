@@ -58,8 +58,13 @@
     // Editar tipo de cartel
     const editarTipoCartel = async (id) => {
         try {
-            tipoCartel.value = await tiposCartelService.obtenerTipoCartel(id);
-            tipoCartelDialog.value = true;
+            const data = await tiposCartelService.obtenerTipoCartel(id);
+            if (data) {
+                tipoCartel.value = data;
+                tipoCartelDialog.value = true;
+            } else {
+                mostrarToast('error', 'Error', 'No se encontró el tipo de cartel');
+            }
         } catch (error) {
             mostrarToast('error', 'Error', 'Error al cargar tipo de cartel');
         }

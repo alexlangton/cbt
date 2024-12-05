@@ -9,7 +9,7 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Toolbar from 'primevue/toolbar';
 import Toast from 'primevue/toast';
-import { onBeforeMount, onMounted, ref } from 'vue';
+import { onBeforeMount, onMounted, ref, computed } from 'vue';
 
 // Referencias y estados
 const toast = useToast();
@@ -29,6 +29,14 @@ const esModoEdicion = ref(false);
 
 // Control de actualizaciones
 let actualizacionEnCurso = false;
+
+// Añadir un estado para controlar el envío de correos
+const enviandoCorreos = ref({});
+
+// Añade una propiedad computada para habilitar/deshabilitar el botón "Borrar"
+const disableBorrarButton = computed(() => {
+  return !usuariosSeleccionados.value || usuariosSeleccionados.value.length === 0;
+});
 
 // Funciones auxiliares
 const mostrarToast = (severity, summary, detail) => {
@@ -80,6 +88,12 @@ const clickEditarUsuario = async (id) => {
     }
 };
 
+const clickNuevoUsuario = () => {
+    usuario.value = { id: null, nombre: '', email: '', pass: '' };
+    esModoEdicion.value = false;
+    dialogUsuarioVisible.value = true;
+};
+
 const clickDeleteUsuario = async () => {
     try {
         await usuarioService.borrarUsuario(usuario.value.id);
@@ -106,14 +120,20 @@ const clickBorrarUsuariosSeleccionados = async () => {
     }
 };
 
-// Añadir esta función
+// Modificar la función de envío de recuperación de contraseña
 const enviarRecuperacionPassword = async (email) => {
+    if (enviandoCorreos.value[email]) return; // Si ya se está enviando, no hacer nada
+
+    enviandoCorreos.value[email] = true; // Marcar como en proceso
+
     try {
         await usuarioService.recuperarPassword(email);
         mostrarToast('success', 'OK', 'Email de recuperación enviado correctamente');
     } catch (error) {
         mostrarToast('error', 'Error', 'Error al enviar email de recuperación');
         console.error(error);
+    } finally {
+        enviandoCorreos.value[email] = false; // Marcar como terminado
     }
 };
 
@@ -136,10 +156,10 @@ onBeforeMount(() => filters.value = {
                 <Toolbar class="mb-4">
                     <template #start>
                         <Button label="Nuevo" icon="pi pi-plus" severity="secondary" outlined 
-                            class="mr-2" @click="dialogUsuarioVisible = true; esModoEdicion = false" />
+                            class="mr-2" @click="clickNuevoUsuario" />
                         <Button label="Borrar" icon="pi pi-trash" severity="secondary" outlined
                             @click="borrarUsuariosDialog = true" 
-                            :disabled="!usuariosSeleccionados?.length" />
+                            :disabled="disableBorrarButton" />
                     </template>
                     <template #end>
                         <Button label="Exportar CSV" icon="pi pi-upload" severity="secondary" 
@@ -149,10 +169,15 @@ onBeforeMount(() => filters.value = {
 
                 <!-- Buscador -->
                 <div class="flex justify-content-end mb-4">
-                    <span class="p-input-icon-left">
-                        <i class="pi pi-search" />
-                        <InputText v-model="filters['global'].value" placeholder="Buscar..." />
-                    </span>
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
+                        <InputText
+                            v-model="filters['global'].value"
+                            placeholder="Buscar..."
+                        />
+                    </IconField>
                 </div>
 
                 <!-- DataTable -->
@@ -161,7 +186,8 @@ onBeforeMount(() => filters.value = {
                     class="p-datatable-sm" stripedRows tableStyle="min-width: 50rem"
                     paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                     :rowsPerPageOptions="[5, 10, 25]"
-                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios">
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
+                    v-model:filters="filters" filterDisplay="menu" >
                     
                     <Column selectionMode="multiple" style="width: 3rem" />
                     <Column field="nombre" header="Nombre" :sortable="true" style="width: 15rem" />
@@ -180,9 +206,11 @@ onBeforeMount(() => filters.value = {
                                     @click="clickEditarUsuario(data.id)" 
                                     v-tooltip.top="'Editar usuario'"
                                 />
-                                <Button icon="pi pi-envelope" 
+                                <Button 
+                                    :icon="`pi pi-envelope ${enviandoCorreos[data.email] ? 'pi-spin' : ''}`"
                                     rounded outlined 
                                     severity="info"
+                                    :disabled="enviandoCorreos[data.email]"
                                     @click="enviarRecuperacionPassword(data.email)"
                                     v-tooltip.top="'Enviar recuperación de contraseña'"
                                 />

@@ -64,18 +64,19 @@
         width: 150px;
         overflow: hidden;
         white-space: nowrap;
-        background-color: black;
-        padding: 4px;
+        background-color: black;        
     }
 
     .rotativo-contenedor strong {
-        color: white;
+        color: #FFD700;
+        font-size: 1.1rem;
     }
 
     .marquee {
         display: inline-block;
         animation: marquee 15s linear infinite;
         padding-left: 100%;
+        white-space: nowrap;
     }
 
     @keyframes marquee {
@@ -83,12 +84,16 @@
             transform: translateX(0);
         }
         100% {
-            transform: translateX(-90%);
+            transform: translateX(-100%);
         }
     }
 
-    .marquee strong::after {
-        content: attr(data-content);
-        margin-left: 50px;
+    .rotativo-contenedor div {
+        display: inline-block;
+    }
+
+    .marquee strong {
+        display: inline-block;
+        padding-right: 50px;
     }
 </style>

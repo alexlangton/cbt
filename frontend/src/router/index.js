@@ -6,12 +6,17 @@ const router = createRouter({
     routes: [
         {
             path: '/',
-            redirect: '/auth/login' // Redirect root to /auth/login
+            name: 'root',
+            redirect: () => {
+                const token = localStorage.getItem('token');
+                return token ? { name: 'dashboard' } : { name: 'login' };
+            }
         },
         {
             path: '/auth/login',
             name: 'login',
-            component: () => import('@/views/pages/auth/Login.vue')
+            component: () => import('@/views/pages/auth/Login.vue'),
+            meta: { requiresAuth: false }
         },
         {
             path: '/auth/nuevaContrasenia',
@@ -26,7 +31,8 @@ const router = createRouter({
                 {
                     path: '/pages/dashboard',
                     name: 'dashboard',
-                    component: () => import('@/views/pages/Dashboard.vue')
+                    component: () => import('@/views/pages/Dashboard.vue'),
+                    meta: { requiresAuth: true }
                 },
                 {
                     path: '/crud/crudCarteles',
@@ -86,12 +92,30 @@ const router = createRouter({
             name: 'error',
             component: () => import('@/views/pages/auth/Error.vue')
         },
-        // Ruta para 404
+        // Ruta para manejar rutas no encontradas
         {
             path: '/:pathMatch(.*)*',
-            redirect: '/pages/notfound'
+            redirect: '/auth/login' // Cambiado: redirige a login en lugar de notfound
         }
     ]
+});
+
+// Agregar navegación guard global
+router.beforeEach((to, from, next) => {
+    const token = localStorage.getItem('token');
+    
+    // Si la ruta requiere autenticación y no hay token
+    if (to.meta.requiresAuth && !token) {
+        next({ name: 'login' });
+    }
+    // Si intenta acceder a login con un token válido
+    else if (to.name === 'login' && token) {
+        next({ name: 'dashboard' });
+    }
+    // En cualquier otro caso, permitir la navegación
+    else {
+        next();
+    }
 });
 
 export default router;

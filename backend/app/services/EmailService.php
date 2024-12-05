@@ -45,7 +45,7 @@ class EmailService {
             $this->validarParametros($email, $token);
             $f3 = \Base::instance();
             
-            $urlRecuperacion = $this->construirUrlRecuperacion($token);
+            $urlRecuperacion = $this->construirUrlRecuperacion($email, $token);
             $fromEmail = $this->obtenerEmailRemitente();
             $body = $this->prepararCuerpoEmail($email, $urlRecuperacion);
 
@@ -67,7 +67,7 @@ class EmailService {
         }
     }
 
-    private function construirUrlRecuperacion($token) {
+    private function construirUrlRecuperacion($email, $token) {
         $f3 = \Base::instance();
         
         if (!$f3->exists('urls.BASE') || !$f3->exists('urls.PASSWORD_RESET')) {
@@ -76,7 +76,7 @@ class EmailService {
         
         $urlBase = rtrim($f3->get('urls.BASE'), '/');
         $rutaReset = ltrim($f3->get('urls.PASSWORD_RESET'), '/');
-        return $urlBase . '/' . $rutaReset . '?token=' . urlencode($token);
+        return $urlBase . '/' . $rutaReset . '?email=' . urlencode($email) . '&token=' . urlencode($token);
     }
 
     private function obtenerEmailRemitente() {

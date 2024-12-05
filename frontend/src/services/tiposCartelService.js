@@ -16,8 +16,7 @@ const formatearTipoCartel = (tipoCartel) => {
 export const cargarTiposCartel = async () => {
     try {
         const { data } = await axios.get(BASE_URL);
-        const tiposCartel = data.datos?.datos || data.datos || [];
-        console.log('Tipos de cartel cargados:', tiposCartel);
+        const tiposCartel = data.datos?.datos || data.datos || [];        
         return Array.isArray(tiposCartel) ? tiposCartel.map(formatearTipoCartel) : [];
     } catch (error) {
         console.error('Error al cargar tipos de cartel:', error);

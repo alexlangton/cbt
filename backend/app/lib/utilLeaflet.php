@@ -51,8 +51,8 @@
       $latitudes = [];
       $longitudes = [];
 
-      // Obtención de registros
-      $registros = bdMarcadores::obtener($f3, $tipo);
+      $consultasMarcadores = new ConsultasMarcadores();
+      $registros = $consultasMarcadores->obtenerRegistrosMarcadores($f3, $tipo);
 
       // Verifica que haya resultados antes de procesarlos
       if ($registros && is_array($registros)) {
@@ -67,17 +67,31 @@
                $latitudes[] = $lat;
                $longitudes[] = $lng;
 
-               // Valida y reemplaza los valores en JSON de atributos
+               // Manejo de atributos
                $atributos = $registro['atributos'];
+               $atributosModificados = [];
+               
                if ($atributos) {
-                  $jsonModificado = $util->reemplazarValoresEnJson($atributos);
-                  $atributosModificados = json_decode($jsonModificado, true);
-               } else {
-                  error_log("Atributos no válidos o JSON mal formado para registro ID: {$registro['id']}");
-                  $atributosModificados = [];
+                  try {
+                     // Si es un array, convertirlo a JSON primero
+                     if (is_array($atributos)) {
+                        $atributos = json_encode($atributos);
+                     }
+                     
+                     // Ahora que tenemos una cadena JSON, podemos procesarla
+                     if (is_string($atributos)) {
+                        $jsonModificado = $util->reemplazarValoresEnJson($atributos);
+                        if ($jsonModificado !== false) {
+                           $atributosModificados = json_decode($jsonModificado, true) ?? [];
+                        }
+                     }
+                  } catch (\Exception $e) {
+                     error_log("Error procesando atributos: " . $e->getMessage());
+                     $atributosModificados = [];
+                  }
                }
 
-               // Construcción base del marcador
+               // Construcción del marcador
                $marcador = [
                   'id' => $registro['id'],
                   'type' => $registro['tipo'],
@@ -95,15 +109,9 @@
                }
 
                $nuevo[] = $marcador;
-            } else {
-               error_log("Valor no numérico encontrado: latitud = {$registro['latitud']}, longitud = {$registro['longitud']}");
             }
          }
-      } else {
-         error_log("No se encontraron registros o los datos no están en el formato adecuado.");
       }
-
-      // Retorna el array completo con los valores modificados
       return $nuevo;
    }
 

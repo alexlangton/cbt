@@ -30,14 +30,16 @@
                 </template>
 
                 <template #end>
-                    <span class="p-input-icon-left">
-                        <i class="pi pi-search" />
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
                         <InputText 
                             v-model="filters['global'].value" 
                             placeholder="Buscar..." 
                             class="p-inputtext-sm"
                         />
-                    </span>
+                    </IconField>
                 </template>
             </Toolbar>
 
@@ -59,7 +61,7 @@
                 scrollHeight="flex"
                 size="small"
             >
-                <Column field="fecha" header="Fecha" dataType="date" style="min-width: 10rem">
+                <Column field="fecha" header="Fecha" dataType="date" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         {{ formatearFecha(data.fecha) }}
                     </template>
@@ -100,7 +102,7 @@
                 </template>
             </Column>
 
-            <Column field="contenido" header="Contenido" style="min-width: 12rem">
+            <Column field="contenido" header="Contenido" :sortable="true" style="min-width: 12rem">
                 <template #filter="{ filterModel }">
                     <InputText 
                         v-model="filterModel.value" 
@@ -111,7 +113,7 @@
                 </template>
             </Column>
 
-            <Column field="metadata" header="Metadata" style="min-width: 12rem">
+            <Column field="metadata" header="Metadata" :sortable="true" style="min-width: 12rem">
                 <template #body="{ data }">
                     <Button
                         v-if="data.metadata"
@@ -131,7 +133,7 @@
                 </template>
             </Column>
 
-                <Column field="id_usuario" header="Usuario" style="min-width: 12rem">
+                <Column field="id_usuario" header="Usuario" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
                         <div class="flex align-items-center gap-2">
                             <Tag 
@@ -216,6 +218,8 @@ import Calendar from 'primevue/calendar'
 import InputText from 'primevue/inputtext'
 import Dropdown from 'primevue/dropdown'
 import Toolbar from 'primevue/toolbar'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 
 // Usar el composable
 const {
@@ -270,27 +274,41 @@ const confirmarBorradoLogs = () => {
 }
 
 // Funciones para manejar los iconos y labels de tipo
-const getIconoTipo = (tipo) => {
-    const iconos = {
-        'error': 'pi pi-exclamation-circle',
-        'debug': 'pi pi-code',
-        'info': 'pi pi-info-circle',
-        'sql': 'pi pi-database',
-        'validador': 'pi pi-check-circle'
+const LOG_TYPES = {
+    ERROR: {
+        value: 'error',
+        label: 'Error',
+        icon: 'pi pi-exclamation-circle',
+        severity: 'danger'
+    },
+    DEBUG: {
+        value: 'debug',
+        label: 'Debug',
+        icon: 'pi pi-code',
+        severity: 'info'
+    },
+    INFO: {
+        value: 'info',
+        label: 'Info',
+        icon: 'pi pi-info-circle',
+        severity: 'success'
+    },
+    SQL: {
+        value: 'sql',
+        label: 'SQL',
+        icon: 'pi pi-database',
+        severity: 'warning'
+    },
+    VALIDADOR: {
+        value: 'validador',
+        label: 'Validación',
+        icon: 'pi pi-check-circle',
+        severity: 'success'
     }
-    return iconos[tipo] || 'pi pi-info-circle'
-}
+};
 
-const getTipoLabel = (tipo) => {
-    const labels = {
-        'error': 'Error',
-        'debug': 'Debug',
-        'info': 'Info',
-        'sql': 'SQL',
-        'validador': 'Validación'
-    }
-    return labels[tipo] || tipo
-}
+const getIconoTipo = (tipo) => LOG_TYPES[tipo.toUpperCase()]?.icon ?? 'pi pi-info-circle';
+const getTipoLabel = (tipo) => LOG_TYPES[tipo.toUpperCase()]?.label ?? tipo;
 </script>
 
 <style lang="scss" scoped>
@@ -423,6 +441,24 @@ const getTipoLabel = (tipo) => {
     
     :deep(.p-tag-icon) {
         margin-right: 0.5rem;
+    }
+}
+
+:deep(.p-input-icon-left) {
+    position: relative;
+    display: inline-block;
+
+    i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-color-secondary);
+        z-index: 1;
+    }
+
+    .p-inputtext {
+        padding-left: 2.5rem;
     }
 }
 </style>

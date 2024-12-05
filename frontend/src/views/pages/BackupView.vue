@@ -86,8 +86,13 @@ onMounted(async () => {
                 <div class="card">
                     <!-- Header mejorado -->
                     <div class="flex flex-column mb-4">
-                        <span class="text-500 mb-2">Gestión de Base de Datos</span>
-                        <div class="text-900 text-2xl font-medium">Configuración de la Copia de Seguridad</div>
+                        <div class="flex align-items-center">
+                            <i class="pi pi-database mr-3 text-primary text-2xl"></i>
+                            <div>
+                                <div class="text-900 text-2xl font-medium">Configuración de la Copia de Seguridad</div>
+                                <span class="text-500">Gestión de Base de Datos</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Información de última copia con mejor diseño -->
@@ -182,9 +187,14 @@ onMounted(async () => {
                             <i :class="selectedAction?.icon" class="text-2xl text-primary"></i>
                             <span class="font-medium text-xl">Información Detallada</span>
                         </div>
-                        <p class="text-600 line-height-3 m-0">
-                            {{ selectedAction?.detailedInfo.description }}
-                        </p>
+                        <div class="text-600 line-height-3 pl-2">
+                            <p v-for="item in selectedAction?.detailedInfo.description.split('\n').filter(line => line.trim())" 
+                                :key="item"
+                                class="mb-2"
+                            >
+                                {{ item }}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <template #footer>

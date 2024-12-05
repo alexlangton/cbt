@@ -23,29 +23,29 @@
 
     const emit = defineEmits(['update:visible', 'guardar-usuario', 'error']);
 
-    const usuario = ref({
-        id: props.usuario?.id || null,
-        nombre: props.usuario?.nombre || '',
-        email: props.usuario?.email || '',
-        pass: props.usuario?.pass || ''
-    });
+    const usuarioVacio = {
+        id: null,
+        nombre: '',
+        email: '',
+        pass: ''
+    };
+
+    const usuario = ref(props.esModoEdicion ? { ...props.usuario } : { ...usuarioVacio });
 
     const submitted = ref(false);
     const cargando = ref(false);
 
     watch(
-        () => props.usuario,
+        () => props.visible,
         (newVal) => {
             if (newVal) {
-                usuario.value = {
-                    id: newVal.id || null,
-                    nombre: newVal.nombre || '',
-                    email: newVal.email || '',
-                    pass: newVal.pass || ''
-                };
+                if (props.esModoEdicion) {
+                    usuario.value = { ...props.usuario };
+                } else {
+                    usuario.value = { ...usuarioVacio };
+                }
             }
-        },
-        { deep: true }
+        }
     );
 
     const validarUsuario = () => {
@@ -98,7 +98,7 @@
     };
 
     const cerrarDialog = () => {
-        usuario.value = JSON.parse(JSON.stringify(props.usuario));
+        usuario.value = props.esModoEdicion ? { ...props.usuario } : { ...usuarioVacio };
         submitted.value = false;
         emit('update:visible', false);
     };
@@ -106,6 +106,7 @@
 
 <template>
     <Dialog
+        :key="visible"
         :visible="visible"
         :style="{ width: '500px' }"
         :header="esModoEdicion ? 'Editar Usuario' : 'Nuevo Usuario'"
@@ -127,6 +128,7 @@
                         required="true"
                         autofocus
                         :class="{ 'p-invalid': submitted && !usuario.nombre }"
+                        autocomplete="off"
                     />
                 </span>
                 <small class="p-error" v-if="submitted && !usuario.nombre">
@@ -145,6 +147,12 @@
                         required="true"
                         type="email"
                         :class="{ 'p-invalid': submitted && !usuario.email }"
+                        autocomplete="new-email"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        data-form-type="other"
+                        data-lpignore="true"
                     />
                 </span>
                 <small class="p-error" v-if="submitted && !usuario.email">
@@ -162,6 +170,7 @@
                     :toggleMask="true"
                     class="w-full"
                     :class="{ 'p-invalid': submitted && !usuario.pass }"
+                    autocomplete="off"
                 >
                     <template #header>
                         <h6>Ingrese una contraseña</h6>
